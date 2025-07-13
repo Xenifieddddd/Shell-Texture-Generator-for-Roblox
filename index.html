@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Shell Slicer - Roblox Texture Layer Tool</title>
+<title>Simple Shell - Roblox Texture Layer Tool</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet" />
+<link rel="icon" href="SimpleShellLogo.ico" type="image/x-icon" />
 <style>
   /* Base & Body */
   body {
@@ -222,6 +223,14 @@
       </label>
     </label><br />
 
+    <!-- NEW toggle for multi-step downscale -->
+    <label>Use Multi-step Downscale:
+      <label class="switch">
+        <input type="checkbox" id="multiStepDownscale" />
+        <span class="slider"></span>
+      </label>
+    </label><br />
+
     <button id="generateBtn">Generate Shell Layers</button>
 
     <div id="loadingSpinner"></div>
@@ -301,8 +310,8 @@
     }
 
     function updateParallax() {
-      currentX += (mouseX - currentX) * 0.02;
-      currentY += (mouseY - currentY) * 0.02;
+      currentX += (mouseX - currentX) * 0.075;
+      currentY += (mouseY - currentY) * 0.075;
       drawStars();
       requestAnimationFrame(updateParallax);
     }
@@ -338,15 +347,54 @@
     let width = 0;
     let height = 0;
 
+    let currentZipUrl = null;
+
+    // Multi-step downscale function: progressively scale down large images to maxDim preserving quality
+    async function multiStepDownscale(img, maxDim = 1024) {
+      let offscreen = document.createElement('canvas');
+      let offctx = offscreen.getContext('2d');
+      
+      let srcWidth = img.width;
+      let srcHeight = img.height;
+      
+      offscreen.width = srcWidth;
+      offscreen.height = srcHeight;
+      offctx.drawImage(img, 0, 0);
+      
+      while (offscreen.width > maxDim || offscreen.height > maxDim) {
+        let nextWidth = offscreen.width > maxDim ? Math.max(maxDim, Math.floor(offscreen.width / 2)) : offscreen.width;
+        let nextHeight = offscreen.height > maxDim ? Math.max(maxDim, Math.floor(offscreen.height / 2)) : offscreen.height;
+        
+        let temp = document.createElement('canvas');
+        temp.width = nextWidth;
+        temp.height = nextHeight;
+        let tempCtx = temp.getContext('2d');
+        
+        tempCtx.drawImage(offscreen, 0, 0, offscreen.width, offscreen.height, 0, 0, nextWidth, nextHeight);
+        
+        offscreen = temp;
+        offctx = tempCtx;
+      }
+      
+      return offscreen;
+    }
+
     async function generateShells() {
       downloadLink.style.display = 'none';
       layerPreviews.innerHTML = '';
       loadingSpinner.style.display = 'block';
 
+      if(currentZipUrl){
+        URL.revokeObjectURL(currentZipUrl);
+        currentZipUrl = null;
+      }
+
       const baseFile = document.getElementById('baseColor').files[0];
       const depthFile = document.getElementById('depthMap').files[0];
-      const layerCount = Math.min(256, Math.max(1, parseInt(document.getElementById('layerCount').value)));
+      const userLayerCountRaw = parseInt(document.getElementById('layerCount').value);
+      const userLayerCount = Math.min(256, Math.max(1, userLayerCountRaw));
       const cumulative = document.getElementById('cumulative').checked;
+      const useMultiStep = document.getElementById('multiStepDownscale').checked;
 
       if(!baseFile || !depthFile) {
         alert("Please upload both base color and depth map images.");
@@ -354,37 +402,61 @@
         return;
       }
 
-      const baseImg = await loadImage(URL.createObjectURL(baseFile));
-      const depthImg = await loadImage(URL.createObjectURL(depthFile));
+      let baseImg = await loadImage(URL.createObjectURL(baseFile));
+      let depthImg = await loadImage(URL.createObjectURL(depthFile));
+
+      if(useMultiStep && (baseImg.width > 1024 || baseImg.height > 1024)) {
+        baseImg = await multiStepDownscale(baseImg, 1024);
+      }
+      if(useMultiStep && (depthImg.width > 1024 || depthImg.height > 1024)) {
+        depthImg = await multiStepDownscale(depthImg, 1024);
+      }
 
       let scale = 1;
-      if(baseImg.width > 512 || baseImg.height > 512) {
-        scale = Math.min(512/baseImg.width, 512/baseImg.height);
+      if(!useMultiStep) {
+        if(baseImg.width > 1024 || baseImg.height > 1024) {
+          scale = Math.min(1024 / baseImg.width, 1024 / baseImg.height);
+        }
       }
-      width = Math.floor(baseImg.width * scale);
-      height = Math.floor(baseImg.height * scale);
+
+      width = useMultiStep ? baseImg.width : Math.floor(baseImg.width * scale);
+      height = useMultiStep ? baseImg.height : Math.floor(baseImg.height * scale);
 
       canvas.width = width;
       canvas.height = height;
 
-      ctx.clearRect(0,0,width,height);
+      ctx.clearRect(0, 0, width, height);
       ctx.drawImage(baseImg, 0, 0, width, height);
       const baseData = ctx.getImageData(0, 0, width, height);
 
-      ctx.clearRect(0,0,width,height);
+      ctx.clearRect(0, 0, width, height);
       ctx.drawImage(depthImg, 0, 0, width, height);
       const depthData = ctx.getImageData(0, 0, width, height);
 
       const allShells = [];
 
-      for(let layer=0; layer < layerCount; layer++) {
-        const imgData = ctx.createImageData(width, height);
-        const t = layer / (layerCount - 1);
+      // INTERNAL LAYER COUNT: 3x user layers, capped at 512 max
+      const internalLayerCount = Math.min(512, userLayerCount * 3);
 
-        for(let i=0; i < baseData.data.length; i += 4){
+      // EDGE FADE SETTINGS - stronger fade radius based on fuzziness analogy
+      const fadeRadius = 6; // increased from 3 to 6 pixels for more visible and smoother fade
+
+      for(let layer = 0; layer < userLayerCount; layer++) {
+        const imgData = ctx.createImageData(width, height);
+
+        // Map the current user layer to a depth range over the internalLayerCount steps
+        // We pick internal layers corresponding to this user layer range:
+        const startInternalLayer = Math.floor(layer * (internalLayerCount / userLayerCount));
+        const endInternalLayer = Math.floor((layer + 1) * (internalLayerCount / userLayerCount));
+
+        for(let i = 0; i < baseData.data.length; i += 4){
+          // Normalize depth from 0 to 1
           const depthVal = depthData.data[i] / 255;
-          if(cumulative){
-            if(depthVal >= t){
+
+          if(cumulative) {
+            // cumulative shells: include all pixels with depth >= layer threshold
+            const layerThreshold = layer / (userLayerCount - 1);
+            if(depthVal >= layerThreshold) {
               imgData.data[i] = baseData.data[i];
               imgData.data[i+1] = baseData.data[i+1];
               imgData.data[i+2] = baseData.data[i+2];
@@ -393,8 +465,9 @@
               imgData.data[i+3] = 0;
             }
           } else {
-            const shellMin = layerCount === 1 ? 0 : (layer / layerCount);
-            const shellMax = (layer + 1) / layerCount;
+            // non-cumulative shells: include pixels in this shell's depth band by interpolating over internal layers
+            const shellMin = startInternalLayer / internalLayerCount;
+            const shellMax = endInternalLayer / internalLayerCount;
             if(depthVal > shellMin && depthVal <= shellMax){
               imgData.data[i] = baseData.data[i];
               imgData.data[i+1] = baseData.data[i+1];
@@ -405,10 +478,48 @@
             }
           }
         }
+
+        // EDGE OPACITY FADE
+        // Copy original alpha channel for reference
+        const alphaOrig = new Uint8ClampedArray(imgData.data.length / 4);
+        for(let p = 0; p < alphaOrig.length; p++) {
+          alphaOrig[p] = imgData.data[p * 4 + 3];
+        }
+
+        for(let y = 0; y < height; y++) {
+          for(let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            if(alphaOrig[idx] === 0) continue;
+
+            let minDist = fadeRadius + 1;
+
+            // Check neighbors within fadeRadius for transparent pixels to create a soft alpha fade
+            for(let oy = -fadeRadius; oy <= fadeRadius; oy++) {
+              for(let ox = -fadeRadius; ox <= fadeRadius; ox++) {
+                if(ox === 0 && oy === 0) continue;
+                const nx = x + ox;
+                const ny = y + oy;
+                if(nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+                const nIdx = ny * width + nx;
+                if(alphaOrig[nIdx] === 0) {
+                  const dist = Math.sqrt(ox * ox + oy * oy);
+                  if(dist < minDist) minDist = dist;
+                }
+              }
+            }
+
+            if(minDist <= fadeRadius) {
+              // Linearly fade alpha by distance to nearest transparent pixel, stronger fade near edges
+              const fadeFactor = minDist / fadeRadius;
+              imgData.data[idx * 4 + 3] = Math.floor(alphaOrig[idx] * fadeFactor);
+            }
+          }
+        }
+
         allShells.push(imgData);
       }
 
-      // Render each layer as an image below
+      // Render preview images below
       for(let i = 0; i < allShells.length; i++) {
         const exportCanvas = document.createElement('canvas');
         exportCanvas.width = width;
@@ -418,51 +529,52 @@
 
         const img = document.createElement('img');
         img.src = exportCanvas.toDataURL('image/png');
-        img.alt = `Shell Layer ${i+1}`;
+        img.alt = `Shell Layer ${i + 1}`;
         layerPreviews.appendChild(img);
       }
 
       loadingSpinner.style.display = 'none';
 
       // Prepare ZIP
-      createZip(allShells);
+      await createZip(allShells);
     }
 
+    // Helper to load image as HTMLImageElement or canvas if multiStepDownscale returns one
     function loadImage(src) {
-      return new Promise(resolve => {
+      return new Promise((resolve) => {
         const img = new Image();
+        img.crossOrigin = "anonymous";
         img.onload = () => resolve(img);
         img.src = src;
       });
     }
 
-    async function createZip(shells) {
+    async function createZip(allShells) {
       const zip = new JSZip();
 
-      for(let i = 0; i < shells.length; i++) {
-        const imgData = shells[i];
-        const exportCanvas = document.createElement('canvas');
-        exportCanvas.width = imgData.width;
-        exportCanvas.height = imgData.height;
-        const exportCtx = exportCanvas.getContext('2d');
-        exportCtx.putImageData(imgData, 0, 0);
+      for(let i = 0; i < allShells.length; i++) {
+        const c = document.createElement('canvas');
+        c.width = width;
+        c.height = height;
+        c.getContext('2d').putImageData(allShells[i], 0, 0);
 
-        // Await canvas to blob promise
-        await new Promise(res => exportCanvas.toBlob(blob => {
-          zip.file(`shell_layer_${i+1}.png`, blob);
-          res();
-        }, 'image/png'));
+        // Convert canvas to blob, add to zip
+        const blob = await new Promise(resolve => c.toBlob(resolve, 'image/png'));
+        zip.file(`shell_layer_${(i + 1).toString().padStart(3, '0')}.png`, blob);
       }
 
-      zip.generateAsync({type:"blob"}).then(content => {
-        downloadLink.href = URL.createObjectURL(content);
-        downloadLink.style.display = 'inline-block';
-        downloadLink.textContent = `Download ZIP (${shells.length} layers)`;
-      });
+      const content = await zip.generateAsync({type: 'blob'});
+      if(currentZipUrl){
+        URL.revokeObjectURL(currentZipUrl);
+      }
+      currentZipUrl = URL.createObjectURL(content);
+      downloadLink.href = currentZipUrl;
+      downloadLink.style.display = 'inline-block';
+      downloadLink.textContent = `Download ${allShells.length} shell layers (zip)`;
     }
 
     document.getElementById('generateBtn').addEventListener('click', generateShells);
-  </script>
 
+  </script>
 </body>
 </html>
