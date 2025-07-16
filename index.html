@@ -576,37 +576,63 @@ for(let i = 0; i < finalLayers.length; i++) {
       loadingSpinner.style.display = 'none';
     }
 
-    function applyEdgeFade(imageData, width, height, radius) {
-      const data = imageData.data;
-      // For each pixel, check neighbors alpha - simple edge fade algorithm
-      // We'll approximate by checking distance to nearest transparent pixel within radius
-      // To keep performant, just fade pixels near transparent edges
-      for(let y = 0; y < height; y++) {
-        for(let x = 0; x < width; x++) {
-          const idx = (y * width + x) * 4 + 3;
-          if(data[idx] === 0) continue;
+function applyEdgeFade(imageData, width, height, radius) {
+  const data = imageData.data;
+  const getAlpha = (x, y) => {
+    if (x < 0 || x >= width || y < 0 || y >= height) return 0;
+    return data[(y * width + x) * 4 + 3];
+  };
 
-          let minDist = radius + 1;
-          // Check neighborhood for transparent pixel
-          for(let oy = -radius; oy <= radius; oy++) {
-            for(let ox = -radius; ox <= radius; ox++) {
-              const nx = x + ox;
-              const ny = y + oy;
-              if(nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-              const nidx = (ny * width + nx) * 4 + 3;
-              if(data[nidx] === 0) {
-                const dist = Math.sqrt(ox*ox + oy*oy);
-                if(dist < minDist) minDist = dist;
-              }
-            }
-          }
-          if(minDist <= radius) {
-            const fade = minDist / radius;
-            data[idx] = Math.floor(data[idx] * fade);
+  const shouldFade = new Uint8Array(width * height);
+
+  // First pass: mark which pixels are near transparency
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      if (getAlpha(x, y) === 0) continue;
+
+      // Check surrounding pixels
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          if (getAlpha(x + dx, y + dy) === 0) {
+            shouldFade[idx] = 1;
           }
         }
       }
     }
+  }
+
+  // Second pass: apply fade only to marked pixels
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      if (!shouldFade[idx]) continue;
+
+      const alphaIdx = idx * 4 + 3;
+      let minDist = radius + 1;
+
+      // Find distance to nearest transparent pixel within radius
+      for (let oy = -radius; oy <= radius; oy++) {
+        for (let ox = -radius; ox <= radius; ox++) {
+          const nx = x + ox;
+          const ny = y + oy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          if (getAlpha(nx, ny) === 0) {
+            const dist = Math.sqrt(ox * ox + oy * oy);
+            if (dist < minDist) minDist = dist;
+          }
+        }
+      }
+
+      if (minDist <= radius) {
+        const fade = minDist / radius;
+        data[alphaIdx] = Math.floor(data[alphaIdx] * fade);
+      }
+    }
+  }
+}
+
 
     function mergeImageData(dest, src) {
       const d = dest.data;
