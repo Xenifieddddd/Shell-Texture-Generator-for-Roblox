@@ -496,7 +496,7 @@
 
           // depth normalized from depth map alpha or brightness
           // Assuming depth map in grayscale, use red channel normalized
-          let depthValue = depthData.data[idx] / 255;
+          let depthValue = 1 - depthData.data[idx] / 255;
 
           // Check if this pixel is in this shell layer range
           if(depthValue >= depthThresholdLow && depthValue < depthThresholdHigh) {
@@ -551,17 +551,17 @@
       const baseFilename = baseFile.name.replace(/\.[^/.]+$/, "");
 
 for(let i = 0; i < finalLayers.length; i++) {
-  ctx.putImageData(finalLayers[i], 0, 0);
+  const reversedIndex = finalLayers.length - i - 1;
+
+  ctx.putImageData(finalLayers[reversedIndex], 0, 0);
   const dataUrl = canvas.toDataURL('image/png');
 
-  // Show preview
   const img = new Image();
   img.src = dataUrl;
-  layerPreviews.insertBefore(img, layerPreviews.firstChild);
+  layerPreviews.appendChild(img);
 
-  // Add to zip
   const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
-  zip.file(`${baseFilename}_shell_layer_${i+1}.png`, base64, {base64: true});
+  zip.file(`shell_layer_${i+1}.png`, base64, {base64: true});
 }
 
       // Generate zip blob
