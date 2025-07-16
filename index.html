@@ -532,10 +532,15 @@
       for(let i = 0; i < userLayerCount; i++) {
         const combinedData = ctx.createImageData(width, height);
 
-        if(i === 0) {
-          // First user layer is just the first internal shell, no merges or fades
-          mergeImageData(combinedData, allShells[0]);
-        } else {
+        if (i === 0) {
+  // First layer: untouched base color with no slicing or fade
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(baseImg, 0, 0, width, height);
+  const baseLayerData = ctx.getImageData(0, 0, width, height);
+  finalLayers.push(baseLayerData);
+  continue; // skip rest of loop
+}
+ else {
           if(cumulative) {
             // Merge all layers up to i * 3 + 2
             for(let j = 0; j <= i * 3 + 2 && j < internalLayerCount; j++) {
@@ -564,7 +569,7 @@
         const imgElem = document.createElement('img');
         imgElem.src = dataURL;
         imgElem.alt = `Layer ${index + 1}`;
-        layerPreviews.appendChild(imgElem);
+        layerPreviews.prepend(imgElem);
 
         // Add to ZIP
         const base64 = dataURL.split(',')[1];
@@ -601,54 +606,21 @@
       }
     }
 
-    // Apply edge fade alpha near edges of opaque regions to reduce Roblox edge artifacts
-    // Fades alpha near pixels with transparent neighbors within radius
-    function applyEdgeFade(imageData, width, height, radius) {
-      const data = imageData.data;
-      const alpha = new Uint8ClampedArray(width * height);
-      for(let i = 0; i < width * height; i++) {
-        alpha[i] = data[i * 4 + 3];
-      }
+    function applyEdgeFade(imageData, width, height, threshold = 10) {
+  const data = imageData.data;
+  for (let i = 0; i < width * height; i++) {
+    const r = data[i * 4];
+    const g = data[i * 4 + 1];
+    const b = data[i * 4 + 2];
+    const brightness = (r + g + b) / 3;
 
-      // Precompute fade alpha for each pixel based on distance to nearest transparent pixel
-      const fadeAlpha = new Float32Array(width * height);
-
-      for(let y = 0; y < height; y++) {
-        for(let x = 0; x < width; x++) {
-          const i = y * width + x;
-          if(alpha[i] === 0) {
-            fadeAlpha[i] = 0;
-            continue;
-          }
-          // Check distance to transparent pixels within radius
-          let minDist = radius + 1;
-          for(let dy = -radius; dy <= radius; dy++) {
-            const ny = y + dy;
-            if(ny < 0 || ny >= height) continue;
-            for(let dx = -radius; dx <= radius; dx++) {
-              const nx = x + dx;
-              if(nx < 0 || nx >= width) continue;
-              const ni = ny * width + nx;
-              if(alpha[ni] === 0) {
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                if(dist < minDist) minDist = dist;
-              }
-            }
-          }
-          if(minDist <= radius) {
-            // Linear fade: fully opaque if minDist=radius, fully transparent at minDist=0
-            fadeAlpha[i] = minDist / radius;
-          } else {
-            fadeAlpha[i] = 1;
-          }
-        }
-      }
-
-      // Apply fade to alpha channel
-      for(let i = 0; i < width * height; i++) {
-        data[i * 4 + 3] = Math.min(255, data[i * 4 + 3] * fadeAlpha[i]);
-      }
+    // If pixel is very dark (within threshold), make it fully transparent
+    if (brightness < threshold) {
+      data[i * 4 + 3] = 0;
     }
+  }
+}
+
 
     function loadImage(src) {
       return new Promise((resolve, reject) => {
