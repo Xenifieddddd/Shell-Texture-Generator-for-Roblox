@@ -379,29 +379,29 @@
     async function multiStepDownscale(img, maxDim = 1024) {
       let offscreen = document.createElement('canvas');
       let offctx = offscreen.getContext('2d');
-
+      
       let srcWidth = img.width;
       let srcHeight = img.height;
-
+      
       offscreen.width = srcWidth;
       offscreen.height = srcHeight;
       offctx.drawImage(img, 0, 0);
-
+      
       while (offscreen.width > maxDim || offscreen.height > maxDim) {
         let nextWidth = offscreen.width > maxDim ? Math.max(maxDim, Math.floor(offscreen.width / 2)) : offscreen.width;
         let nextHeight = offscreen.height > maxDim ? Math.max(maxDim, Math.floor(offscreen.height / 2)) : offscreen.height;
-
+        
         let temp = document.createElement('canvas');
         temp.width = nextWidth;
         temp.height = nextHeight;
         let tempCtx = temp.getContext('2d');
-
+        
         tempCtx.drawImage(offscreen, 0, 0, offscreen.width, offscreen.height, 0, 0, nextWidth, nextHeight);
-
+        
         offscreen = temp;
         offctx = tempCtx;
       }
-
+      
       return offscreen;
     }
 
@@ -641,7 +641,6 @@ for(let i = finalLayers.length - 1; i >= 1; i--) {
 
   const base64 = dataURL.split(',')[1];
   zip.file(`shell_layer_${i + 1}.png`, base64, { base64: true });
-  zip.file(`shell_layer_${finalLayers.length - i}.png`, base64, { base64: true });
 }
 
 // Now add the base layer on top (visually first in preview)
