@@ -643,20 +643,20 @@ const zip = new JSZip();
   zip.file(`shell_layer_1.png`, base64, { base64: true });
 }
 
-for (let i = 1; i < finalLayers.length; i++) {
+// Then show all the shell layers in order, below base
+for(let i = 1; i < finalLayers.length; i++) {
   const imgData = finalLayers[i];
   ctx.putImageData(imgData, 0, 0);
   const dataURL = canvas.toDataURL('image/png');
 
   const imgElem = document.createElement('img');
   imgElem.src = dataURL;
-  imgElem.alt = `Shell Layer ${i + 1}`;
+  imgElem.alt = `Shell Layer ${i}`;
   layerPreviews.appendChild(imgElem);
 
   const base64 = dataURL.split(',')[1];
   zip.file(`shell_layer_${i + 1}.png`, base64, { base64: true });
 }
-
 
 // Generate ZIP and setup download link
 zip.generateAsync({type:"blob"}).then(content => {
