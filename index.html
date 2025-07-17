@@ -640,7 +640,7 @@ for(let i = finalLayers.length - 1; i >= 1; i--) {
   layerPreviews.appendChild(imgElem);
 
   const base64 = dataURL.split(',')[1];
-  zip.file(`shell_layer_${i + 1}.png`, base64, { base64: true });
+  zip.file(`shell_layer_${finalLayers.length - i}.png`, base64, { base64: true });
 }
 
 // Now add the base layer on top (visually first in preview)
