@@ -628,6 +628,10 @@ for (let i = 1; i < userLayerCount; i++) {
 layerPreviews.innerHTML = '';
 const zip = new JSZip();
 
+// Clear existing previews and ZIP files before starting
+layerPreviews.innerHTML = '';
+const zip = new JSZip();
+
 // Show shell layers first (bottom layers at bottom of preview)
 for(let i = finalLayers.length - 1; i >= 1; i--) {
   const imgData = finalLayers[i];
@@ -641,6 +645,21 @@ for(let i = finalLayers.length - 1; i >= 1; i--) {
 
   const base64 = dataURL.split(',')[1];
   zip.file(`shell_layer_${i + 1}.png`, base64, { base64: true });
+}
+
+// Now add the base layer on top (visually first in preview)
+{
+  const baseLayerData = finalLayers[0];
+  ctx.putImageData(baseLayerData, 0, 0);
+  const baseURL = canvas.toDataURL('image/png');
+
+  const baseImg = document.createElement('img');
+  baseImg.src = baseURL;
+  baseImg.alt = 'Base Layer';
+  layerPreviews.insertBefore(baseImg, layerPreviews.firstChild);
+
+  const base64 = baseURL.split(',')[1];
+  zip.file(`shell_layer_1.png`, base64, { base64: true });
 }
 
 // Then show all the shell layers in order, below base
