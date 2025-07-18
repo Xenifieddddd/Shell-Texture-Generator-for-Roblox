@@ -548,7 +548,7 @@
       const allShells = [];
 
       // For smoother edge fade, smaller radius:
-      const edgeFadeRadius = 10; // <-- Changed from 3 to 2 for less noticeable fade
+      const edgeFadeRadius = 5; // <-- Changed from 3 to 2 for less noticeable fade
 
       // Calculate internal shell count: 3 times user layers
       const internalLayerCount = (userLayerCount - 1) * 3;
@@ -689,7 +689,7 @@ zip.generateAsync({type:"blob"}).then(content => {
       }
     }
 
-    function applyEdgeFade(imageData, width, height, threshold = 20, fuzziness = 20) {
+    function applyEdgeFade(imageData, width, height, threshold = 20, fuzziness = 15) {
   const data = imageData.data;
   for (let i = 0; i < width * height; i++) {
     const idx = i * 4;
