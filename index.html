@@ -689,7 +689,7 @@ zip.generateAsync({type:"blob"}).then(content => {
       }
     }
 
-    function applyEdgeFade(imageData, width, height, threshold = 20, fuzziness = 15) {
+    function applyEdgeFade(imageData, width, height, threshold = 20, fuzziness = 20) {
   const data = imageData.data;
   for (let i = 0; i < width * height; i++) {
     const idx = i * 4;
