@@ -479,200 +479,210 @@
 
       const allShells = [];
 
-      // For smoother edge fade, smaller radius:
-      const edgeFadeRadius = 2; // <-- Changed from 3 to 2 for less noticeable fade
+      // INTERNAL LAYER COUNT: 3x user layers, capped at 512 max
+      const internalLayerCount = Math.min(512, userLayerCount * 3);
 
-      // Calculate internal shell count: 3 times user layers
-      const internalLayerCount = userLayerCount * 3;
+      // EDGE FADE SETTINGS
+      const edgeFadeRadius = 3;
 
-      // Precompute baseDepth for comparison (depth from depth map grayscale)
-      // depthData is RGBA, assume depth encoded in R channel or grayscale
-      const baseDepthValues = new Float32Array(width * height);
-      for(let i = 0; i < width * height; i++) {
-        const idx = i * 4;
-        // Use red channel normalized to 0-1 as depth
-        baseDepthValues[i] = depthData.data[idx] / 255;
-      }
-
-      // Generate internal shells
+      // For each internal shell layer
       for(let i = 0; i < internalLayerCount; i++) {
         const shellImageData = ctx.createImageData(width, height);
+        const depthThresholdLow = i / internalLayerCount;
+        const depthThresholdHigh = (i + 1) / internalLayerCount;
 
-        // Threshold range for this shell
-        const minDepth = i / internalLayerCount;
-        const maxDepth = (i + 1) / internalLayerCount;
+        for(let px = 0; px < width * height; px++) {
+          const idx = px * 4;
 
-        // Loop over all pixels and slice based on depth range
-        for(let p = 0; p < width * height; p++) {
-          const idx = p * 4;
-          const depthValue = baseDepthValues[p];
+          // depth normalized from depth map alpha or brightness
+          // Assuming depth map in grayscale, use red channel normalized
+          let depthValue = 1 - depthData.data[idx] / 255;
 
-          if(depthValue >= minDepth && depthValue < maxDepth) {
-            // Copy base color RGB to shell
+          // Check if this pixel is in this shell layer range
+          if(depthValue >= depthThresholdLow && depthValue < depthThresholdHigh) {
+            // Copy base color
             shellImageData.data[idx] = baseData.data[idx];
-            shellImageData.data[idx + 1] = baseData.data[idx + 1];
-            shellImageData.data[idx + 2] = baseData.data[idx + 2];
-            shellImageData.data[idx + 3] = 255;
+            shellImageData.data[idx+1] = baseData.data[idx+1];
+            shellImageData.data[idx+2] = baseData.data[idx+2];
+            // Alpha mostly full (255), can be modulated with normal if available
+            let alphaVal = 255;
+
+            if(normalData){
+              // Modulate alpha by normal intensity (example)
+              alphaVal = Math.min(255, normalData.data[idx] + 50);
+            }
+            shellImageData.data[idx+3] = alphaVal;
           } else {
-            // Transparent pixel
-            shellImageData.data[idx + 3] = 0;
+            // Transparent
+            shellImageData.data[idx+3] = 0;
           }
         }
 
-        // Apply edge fade to reduce Roblox edge artifacts, except for first internal layer (base layer)
-        if(i !== 0) {
-          applyEdgeFade(shellImageData, width, height, edgeFadeRadius);
-        }
+        // Apply edge fade: fade alpha near edges within edgeFadeRadius
+        applyEdgeFade(shellImageData, width, height, edgeFadeRadius);
 
         allShells.push(shellImageData);
       }
 
-      // Combine internal shells into final user-visible layers (triples per layer)
+      // Now generate the final user-visible layers by merging triples if cumulative = false
       const finalLayers = [];
       for(let i = 0; i < userLayerCount; i++) {
+        // Start with blank image
         const combinedData = ctx.createImageData(width, height);
 
-        if(i === 0) {
-          // First user layer is just the first internal shell, no merges or fades
-          mergeImageData(combinedData, allShells[0]);
+        if(cumulative) {
+          // Merge all layers up to i * 3 + 2
+          for(let j = 0; j <= i * 3 + 2 && j < internalLayerCount; j++) {
+            mergeImageData(combinedData, allShells[j]);
+          }
         } else {
-        if (i === 0) {
-  // First layer: untouched base color with no slicing or fade
-  ctx.clearRect(0, 0, width, height);
-  ctx.drawImage(baseImg, 0, 0, width, height);
-  const baseLayerData = ctx.getImageData(0, 0, width, height);
-  finalLayers.push(baseLayerData);
-  continue; // skip rest of loop
-}
- else {
-          if(cumulative) {
-            // Merge all layers up to i * 3 + 2
-            for(let j = 0; j <= i * 3 + 2 && j < internalLayerCount; j++) {
-              mergeImageData(combinedData, allShells[j]);
-            }
-          } else {
-            // Merge the triple group only (i*3, i*3+1, i*3+2)
-            for(let j = i * 3; j <= i * 3 + 2 && j < internalLayerCount; j++) {
-              mergeImageData(combinedData, allShells[j]);
-            }
+          // Merge the triple group only (i*3, i*3+1, i*3+2)
+          for(let j = i * 3; j <= i * 3 + 2 && j < internalLayerCount; j++) {
+            mergeImageData(combinedData, allShells[j]);
           }
         }
+
         finalLayers.push(combinedData);
       }
 
-      // Show previews & create ZIP for download
+      // Generate PNGs, show previews, and add to ZIP
       const zip = new JSZip();
 
-      finalLayers.forEach((imgData, index) => {
-        // Put image data on canvas for export
-        ctx.putImageData(imgData, 0, 0);
+      const baseFilename = baseFile.name.replace(/\.[^/.]+$/, "");
 
-        const dataURL = canvas.toDataURL('image/png');
+for(let i = 0; i < finalLayers.length; i++) {
+  const reversedIndex = finalLayers.length - i - 1;
 
-        // Preview
-        const imgElem = document.createElement('img');
-        imgElem.src = dataURL;
-        imgElem.alt = `Layer ${index + 1}`;
-        layerPreviews.appendChild(imgElem);
-        layerPreviews.prepend(imgElem);
+  ctx.putImageData(finalLayers[reversedIndex], 0, 0);
+  const dataUrl = canvas.toDataURL('image/png');
 
-        // Add to ZIP
-        const base64 = dataURL.split(',')[1];
-        zip.file(`shell_layer_${index + 1}.png`, base64, {base64:true});
-      });
+  const img = new Image();
+  img.src = dataUrl;
+  layerPreviews.appendChild(img);
 
-      zip.generateAsync({type:"blob"}).then(content => {
-        if(currentZipUrl){
-          URL.revokeObjectURL(currentZipUrl);
-          currentZipUrl = null;
-        }
-        currentZipUrl = URL.createObjectURL(content);
-        downloadLink.href = currentZipUrl;
-        downloadLink.style.display = 'inline-block';
-        downloadLink.textContent = `Download ${finalLayers.length} Layers ZIP`;
-        loadingSpinner.style.display = 'none';
-      });
+  const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
+  zip.file(`shell_layer_${i+1}.png`, base64, {base64: true});
+}
+
+      // Generate zip blob
+      const blob = await zip.generateAsync({type:"blob"});
+      const url = URL.createObjectURL(blob);
+      currentZipUrl = url;
+
+      downloadLink.href = url;
+      downloadLink.style.display = 'inline-block';
+      downloadLink.textContent = `Download ${finalLayers.length} Shell Layers (ZIP)`;
+
+      loadingSpinner.style.display = 'none';
     }
 
-    // Merge source ImageData into destination with alpha blending
-    function mergeImageData(dest, src) {
-      const d = dest.data;
-      const s = src.data;
-      for(let i = 0; i < d.length; i += 4) {
-        const srcA = s[i + 3] / 255;
-        const destA = d[i + 3] / 255;
-        const outA = srcA + destA * (1 - srcA);
-        if(outA > 0) {
-          d[i] = (s[i] * srcA + d[i] * destA * (1 - srcA)) / outA;
-          d[i + 1] = (s[i + 1] * srcA + d[i + 1] * destA * (1 - srcA)) / outA;
-          d[i + 2] = (s[i + 2] * srcA + d[i + 2] * destA * (1 - srcA)) / outA;
-          d[i + 3] = outA * 255;
-        }
-      }
-    }
-
-    // Apply edge fade alpha near edges of opaque regions to reduce Roblox edge artifacts
-    // Fades alpha near pixels with transparent neighbors within radius
     function applyEdgeFade(imageData, width, height, radius) {
       const data = imageData.data;
-      const alpha = new Uint8ClampedArray(width * height);
-      for(let i = 0; i < width * height; i++) {
-        alpha[i] = data[i * 4 + 3];
-      }
-
-      // Precompute fade alpha for each pixel based on distance to nearest transparent pixel
-      const fadeAlpha = new Float32Array(width * height);
-
+      // For each pixel, check neighbors alpha - simple edge fade algorithm
+      // We'll approximate by checking distance to nearest transparent pixel within radius
+      // To keep performant, just fade pixels near transparent edges
       for(let y = 0; y < height; y++) {
         for(let x = 0; x < width; x++) {
-          const i = y * width + x;
-          if(alpha[i] === 0) {
-            fadeAlpha[i] = 0;
-            continue;
-          }
-          // Check distance to transparent pixels within radius
+          const idx = (y * width + x) * 4 + 3;
+          if(data[idx] === 0) continue;
+
           let minDist = radius + 1;
-          for(let dy = -radius; dy <= radius; dy++) {
-            const ny = y + dy;
-            if(ny < 0 || ny >= height) continue;
-            for(let dx = -radius; dx <= radius; dx++) {
-              const nx = x + dx;
-              if(nx < 0 || nx >= width) continue;
-              const ni = ny * width + nx;
-              if(alpha[ni] === 0) {
-                const dist = Math.sqrt(dx*dx + dy*dy);
+          // Check neighborhood for transparent pixel
+          for(let oy = -radius; oy <= radius; oy++) {
+            for(let ox = -radius; ox <= radius; ox++) {
+              const nx = x + ox;
+              const ny = y + oy;
+              if(nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+              const nidx = (ny * width + nx) * 4 + 3;
+              if(data[nidx] === 0) {
+                const dist = Math.sqrt(ox*ox + oy*oy);
                 if(dist < minDist) minDist = dist;
               }
             }
+function applyEdgeFade(imageData, width, height, radius) {
+  const data = imageData.data;
+  const getAlpha = (x, y) => {
+    if (x < 0 || x >= width || y < 0 || y >= height) return 0;
+    return data[(y * width + x) * 4 + 3];
+  };
+
+  const shouldFade = new Uint8Array(width * height);
+
+  // First pass: mark which pixels are near transparency
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      if (getAlpha(x, y) === 0) continue;
+
+      // Check surrounding pixels
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          if (getAlpha(x + dx, y + dy) === 0) {
+            shouldFade[idx] = 1;
           }
           if(minDist <= radius) {
-            // Linear fade: fully opaque if minDist=radius, fully transparent at minDist=0
-            fadeAlpha[i] = minDist / radius;
-          } else {
-            fadeAlpha[i] = 1;
+            const fade = minDist / radius;
+            data[idx] = Math.floor(data[idx] * fade);
+        }
+      }
+    }
+  }
+
+  // Second pass: apply fade only to marked pixels
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      if (!shouldFade[idx]) continue;
+
+      const alphaIdx = idx * 4 + 3;
+      let minDist = radius + 1;
+
+      // Find distance to nearest transparent pixel within radius
+      for (let oy = -radius; oy <= radius; oy++) {
+        for (let ox = -radius; ox <= radius; ox++) {
+          const nx = x + ox;
+          const ny = y + oy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          if (getAlpha(nx, ny) === 0) {
+            const dist = Math.sqrt(ox * ox + oy * oy);
+            if (dist < minDist) minDist = dist;
           }
         }
       }
 
-      // Apply fade to alpha channel
-      for(let i = 0; i < width * height; i++) {
-        data[i * 4 + 3] = Math.min(255, data[i * 4 + 3] * fadeAlpha[i]);
+      if (minDist <= radius) {
+        const fade = minDist / radius;
+        data[alphaIdx] = Math.floor(data[alphaIdx] * fade);
       }
-    function applyEdgeFade(imageData, width, height, threshold = 10) {
-  const data = imageData.data;
-  for (let i = 0; i < width * height; i++) {
-    const r = data[i * 4];
-    const g = data[i * 4 + 1];
-    const b = data[i * 4 + 2];
-    const brightness = (r + g + b) / 3;
-
-    // If pixel is very dark (within threshold), make it fully transparent
-    if (brightness < threshold) {
-      data[i * 4 + 3] = 0;
     }
   }
 }
 
+
+    function mergeImageData(dest, src) {
+      const d = dest.data;
+      const s = src.data;
+      for(let i = 0; i < d.length; i += 4) {
+        if(s[i+3] === 0) continue;
+        if(d[i+3] === 0){
+          d[i] = s[i];
+          d[i+1] = s[i+1];
+          d[i+2] = s[i+2];
+          d[i+3] = s[i+3];
+        } else {
+          // Alpha blend normal way
+          const alphaS = s[i+3] / 255;
+          const alphaD = d[i+3] / 255;
+          const outA = alphaS + alphaD * (1 - alphaS);
+          if(outA === 0) continue;
+          d[i] = (s[i] * alphaS + d[i] * alphaD * (1 - alphaS)) / outA;
+          d[i+1] = (s[i+1] * alphaS + d[i+1] * alphaD * (1 - alphaS)) / outA;
+          d[i+2] = (s[i+2] * alphaS + d[i+2] * alphaD * (1 - alphaS)) / outA;
+          d[i+3] = outA * 255;
+        }
+      }
+    }
 
     function loadImage(src) {
       return new Promise((resolve, reject) => {
@@ -684,8 +694,12 @@
       });
     }
 
-    document.getElementById('generateBtn').addEventListener('click', generateShells);
-
+    document.getElementById('generateBtn').addEventListener('click', () => {
+      generateShells().catch(e => {
+        alert("Error during generation: " + e.message);
+        loadingSpinner.style.display = 'none';
+      });
+    });
   </script>
 
 </body>
