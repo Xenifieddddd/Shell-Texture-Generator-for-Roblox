@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Simple Shell - Roblox Texture Layer Tool</title>
+<title>Shell Slicer - Roblox Texture Layer Tool</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet" />
-<link rel="icon" href="SimpleShellLogo.ico" type="image/x-icon" />
 <style>
   /* Base & Body */
   body {
@@ -192,26 +191,6 @@
     box-shadow: 0 0 12px rgba(255 255 255 / 0.3);
     user-select: none;
   }
-
-  /* Normal map preview style */
-  #previewNormal {
-    height: 40px;
-    vertical-align: middle;
-    margin-left: 10px;
-    display: none;
-    border-radius: 6px;
-    border: 1px solid rgba(255 255 255 / 0.3);
-  }
-#previewBase,
-#previewDepth,
-#previewNormal {
-  max-width: 150px;
-  max-height: 150px;
-  display: block;
-  margin: 0.5rem auto;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-}
-
 </style>
 </head>
 <body>
@@ -219,22 +198,17 @@
   <div class="parallax-stars" id="parallaxStars"></div>
 
   <div class="glass-container">
-    <h1>Simple Shell</h1>
+    <h1>Shell Slicer</h1>
     <p>Pixel-accurate shell texture generator for Roblox</p>
 
     <label>Upload Base Color Image:
       <input type="file" id="baseColor" accept="image/png, image/jpeg" />
-      <img id="previewBase" />
+      <img id="previewBase" style="height:40px; vertical-align: middle; margin-left:10px; display:none; border-radius:6px; border:1px solid rgba(255 255 255 / 0.3);" />
     </label><br />
 
     <label>Upload Depth Map Image:
       <input type="file" id="depthMap" accept="image/png, image/jpeg" />
-      <img id="previewDepth" />
-    </label><br />
-
-    <label>Upload Normal Map Image (optional):
-      <input type="file" id="normalMap" accept="image/png, image/jpeg" />
-      <img id="previewNormal" />
+      <img id="previewDepth" style="height:40px; vertical-align: middle; margin-left:10px; display:none; border-radius:6px; border:1px solid rgba(255 255 255 / 0.3);" />
     </label><br />
 
     <label>Number of Layers:
@@ -244,14 +218,6 @@
     <label>Make shells cumulative:
       <label class="switch">
         <input type="checkbox" id="cumulative" />
-        <span class="slider"></span>
-      </label>
-    </label><br />
-
-    <!-- Toggle for multi-step downscale -->
-    <label>Use Multi-step Downscale:
-      <label class="switch">
-        <input type="checkbox" id="multiStepDownscale" />
         <span class="slider"></span>
       </label>
     </label><br />
@@ -335,8 +301,8 @@
     }
 
     function updateParallax() {
-      currentX += (mouseX - currentX) * 0.075;
-      currentY += (mouseY - currentY) * 0.075;
+      currentX += (mouseX - currentX) * 0.02;
+      currentY += (mouseY - currentY) * 0.02;
       drawStars();
       requestAnimationFrame(updateParallax);
     }
@@ -359,7 +325,6 @@
     }
     previewImage('baseColor', 'previewBase');
     previewImage('depthMap', 'previewDepth');
-    previewImage('normalMap', 'previewNormal');
 
     // --- SHELL GENERATION ---
 
@@ -373,55 +338,15 @@
     let width = 0;
     let height = 0;
 
-    let currentZipUrl = null;
-
-    // Multi-step downscale function: progressively scale down large images to maxDim preserving quality
-    async function multiStepDownscale(img, maxDim = 1024) {
-      let offscreen = document.createElement('canvas');
-      let offctx = offscreen.getContext('2d');
-
-      let srcWidth = img.width;
-      let srcHeight = img.height;
-
-      offscreen.width = srcWidth;
-      offscreen.height = srcHeight;
-      offctx.drawImage(img, 0, 0);
-
-      while (offscreen.width > maxDim || offscreen.height > maxDim) {
-        let nextWidth = offscreen.width > maxDim ? Math.max(maxDim, Math.floor(offscreen.width / 2)) : offscreen.width;
-        let nextHeight = offscreen.height > maxDim ? Math.max(maxDim, Math.floor(offscreen.height / 2)) : offscreen.height;
-
-        let temp = document.createElement('canvas');
-        temp.width = nextWidth;
-        temp.height = nextHeight;
-        let tempCtx = temp.getContext('2d');
-
-        tempCtx.drawImage(offscreen, 0, 0, offscreen.width, offscreen.height, 0, 0, nextWidth, nextHeight);
-
-        offscreen = temp;
-        offctx = tempCtx;
-      }
-
-      return offscreen;
-    }
-
     async function generateShells() {
       downloadLink.style.display = 'none';
       layerPreviews.innerHTML = '';
       loadingSpinner.style.display = 'block';
 
-      if(currentZipUrl){
-        URL.revokeObjectURL(currentZipUrl);
-        currentZipUrl = null;
-      }
-
       const baseFile = document.getElementById('baseColor').files[0];
       const depthFile = document.getElementById('depthMap').files[0];
-      const normalFile = document.getElementById('normalMap').files[0];
-      const userLayerCountRaw = parseInt(document.getElementById('layerCount').value);
-      const userLayerCount = Math.min(256, Math.max(1, userLayerCountRaw));
+      const layerCount = Math.min(256, Math.max(1, parseInt(document.getElementById('layerCount').value)));
       const cumulative = document.getElementById('cumulative').checked;
-      const useMultiStep = document.getElementById('multiStepDownscale').checked;
 
       if(!baseFile || !depthFile) {
         alert("Please upload both base color and depth map images.");
@@ -429,277 +354,114 @@
         return;
       }
 
-      let baseImg = await loadImage(URL.createObjectURL(baseFile));
-      let depthImg = await loadImage(URL.createObjectURL(depthFile));
-      let normalImg = null;
-      if(normalFile) {
-        normalImg = await loadImage(URL.createObjectURL(normalFile));
-      }
-
-      if(useMultiStep && (baseImg.width > 1024 || baseImg.height > 1024)) {
-        baseImg = await multiStepDownscale(baseImg, 1024);
-      }
-      if(useMultiStep && (depthImg.width > 1024 || depthImg.height > 1024)) {
-        depthImg = await multiStepDownscale(depthImg, 1024);
-      }
-      if(normalImg && useMultiStep && (normalImg.width > 1024 || normalImg.height > 1024)) {
-        normalImg = await multiStepDownscale(normalImg, 1024);
-      }
+      const baseImg = await loadImage(URL.createObjectURL(baseFile));
+      const depthImg = await loadImage(URL.createObjectURL(depthFile));
 
       let scale = 1;
-      if(!useMultiStep) {
-        if(baseImg.width > 1024 || baseImg.height > 1024) {
-          scale = Math.min(1024 / baseImg.width, 1024 / baseImg.height);
-        }
+      if(baseImg.width > 512 || baseImg.height > 512) {
+        scale = Math.min(512/baseImg.width, 512/baseImg.height);
       }
-
-      width = useMultiStep ? baseImg.width : Math.floor(baseImg.width * scale);
-      height = useMultiStep ? baseImg.height : Math.floor(baseImg.height * scale);
+      width = Math.floor(baseImg.width * scale);
+      height = Math.floor(baseImg.height * scale);
 
       canvas.width = width;
       canvas.height = height;
 
-      // Draw base image and get data
-      ctx.clearRect(0, 0, width, height);
+      ctx.clearRect(0,0,width,height);
       ctx.drawImage(baseImg, 0, 0, width, height);
       const baseData = ctx.getImageData(0, 0, width, height);
 
-      // Draw depth image and get data
-      ctx.clearRect(0, 0, width, height);
+      ctx.clearRect(0,0,width,height);
       ctx.drawImage(depthImg, 0, 0, width, height);
       const depthData = ctx.getImageData(0, 0, width, height);
 
-      // If normal map exists, draw and get data
-      let normalData = null;
-      if(normalImg){
-        ctx.clearRect(0, 0, width, height);
-        ctx.drawImage(normalImg, 0, 0, width, height);
-        normalData = ctx.getImageData(0, 0, width, height);
-      }
-
       const allShells = [];
 
-      // INTERNAL LAYER COUNT: 3x user layers, capped at 512 max
-      const internalLayerCount = Math.min(512, userLayerCount * 3);
+      for(let layer=0; layer < layerCount; layer++) {
+        const imgData = ctx.createImageData(width, height);
+        const t = 1 - (layer / (layerCount - 1));
 
-      // EDGE FADE SETTINGS
-      const edgeFadeRadius = 3;
-
-      // For each internal shell layer
-      for(let i = 0; i < internalLayerCount; i++) {
-        const shellImageData = ctx.createImageData(width, height);
-        const depthThresholdLow = i / internalLayerCount;
-        const depthThresholdHigh = (i + 1) / internalLayerCount;
-
-        for(let px = 0; px < width * height; px++) {
-          const idx = px * 4;
-
-          // depth normalized from depth map alpha or brightness
-          // Assuming depth map in grayscale, use red channel normalized
-          let depthValue = 1 - depthData.data[idx] / 255;
-
-          // Check if this pixel is in this shell layer range
-          if(depthValue >= depthThresholdLow && depthValue < depthThresholdHigh) {
-            // Copy base color
-            shellImageData.data[idx] = baseData.data[idx];
-            shellImageData.data[idx+1] = baseData.data[idx+1];
-            shellImageData.data[idx+2] = baseData.data[idx+2];
-            // Alpha mostly full (255), can be modulated with normal if available
-            let alphaVal = 255;
-
-            if(normalData){
-              // Modulate alpha by normal intensity (example)
-              alphaVal = Math.min(255, normalData.data[idx] + 50);
+        for(let i=0; i < baseData.data.length; i += 4){
+          const depthVal = depthData.data[i] / 255;
+          if(cumulative){
+            if(depthVal <= t){
+              imgData.data[i] = baseData.data[i];
+              imgData.data[i+1] = baseData.data[i+1];
+              imgData.data[i+2] = baseData.data[i+2];
+              imgData.data[i+3] = baseData.data[i+3];
+            } else {
+              imgData.data[i+3] = 0;
             }
-            shellImageData.data[idx+3] = alphaVal;
           } else {
-            // Transparent
-            shellImageData.data[idx+3] = 0;
+            const shellMax = layerCount === 1 ? 1 : (1 - (layer / layerCount));
+	const shellMin = 1 - ((layer + 1) / layerCount);
+if(depthVal >= shellMin && depthVal < shellMax){
+              imgData.data[i] = baseData.data[i];
+              imgData.data[i+1] = baseData.data[i+1];
+              imgData.data[i+2] = baseData.data[i+2];
+              imgData.data[i+3] = baseData.data[i+3];
+            } else {
+              imgData.data[i+3] = 0;
+            }
           }
         }
-
-        // Apply edge fade: fade alpha near edges within edgeFadeRadius
-        applyEdgeFade(shellImageData, width, height, edgeFadeRadius);
-
-        allShells.push(shellImageData);
+        allShells.push(imgData);
       }
 
-      // Now generate the final user-visible layers by merging triples if cumulative = false
-      const finalLayers = [];
-      for(let i = 0; i < userLayerCount; i++) {
-        // Start with blank image
-        const combinedData = ctx.createImageData(width, height);
+      // Render each layer as an image below
+      for(let i = 0; i < allShells.length; i++) {
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = width;
+        exportCanvas.height = height;
+        const exportCtx = exportCanvas.getContext('2d');
+        exportCtx.putImageData(allShells[i], 0, 0);
 
-        if(cumulative) {
-          // Merge all layers up to i * 3 + 2
-          for(let j = 0; j <= i * 3 + 2 && j < internalLayerCount; j++) {
-            mergeImageData(combinedData, allShells[j]);
-          }
-        } else {
-          // Merge the triple group only (i*3, i*3+1, i*3+2)
-          for(let j = i * 3; j <= i * 3 + 2 && j < internalLayerCount; j++) {
-            mergeImageData(combinedData, allShells[j]);
-          }
-        }
-
-        finalLayers.push(combinedData);
+        const img = document.createElement('img');
+        img.src = exportCanvas.toDataURL('image/png');
+        img.alt = `Shell Layer ${i+1}`;
+        layerPreviews.appendChild(img);
       }
-
-      // Generate PNGs, show previews, and add to ZIP
-      const zip = new JSZip();
-
-      const baseFilename = baseFile.name.replace(/\.[^/.]+$/, "");
-
-for(let i = 0; i < finalLayers.length; i++) {
-  const reversedIndex = finalLayers.length - i - 1;
-
-  ctx.putImageData(finalLayers[reversedIndex], 0, 0);
-  const dataUrl = canvas.toDataURL('image/png');
-
-  const img = new Image();
-  img.src = dataUrl;
-  layerPreviews.appendChild(img);
-
-  const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
-  zip.file(`shell_layer_${i+1}.png`, base64, {base64: true});
-}
-
-      // Generate zip blob
-      const blob = await zip.generateAsync({type:"blob"});
-      const url = URL.createObjectURL(blob);
-      currentZipUrl = url;
-
-      downloadLink.href = url;
-      downloadLink.style.display = 'inline-block';
-      downloadLink.textContent = `Download ${finalLayers.length} Shell Layers (ZIP)`;
 
       loadingSpinner.style.display = 'none';
-    }
 
-    function applyEdgeFade(imageData, width, height, radius) {
-      const data = imageData.data;
-      // For each pixel, check neighbors alpha - simple edge fade algorithm
-      // We'll approximate by checking distance to nearest transparent pixel within radius
-      // To keep performant, just fade pixels near transparent edges
-      for(let y = 0; y < height; y++) {
-        for(let x = 0; x < width; x++) {
-          const idx = (y * width + x) * 4 + 3;
-          if(data[idx] === 0) continue;
-
-          let minDist = radius + 1;
-          // Check neighborhood for transparent pixel
-          for(let oy = -radius; oy <= radius; oy++) {
-            for(let ox = -radius; ox <= radius; ox++) {
-              const nx = x + ox;
-              const ny = y + oy;
-              if(nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-              const nidx = (ny * width + nx) * 4 + 3;
-              if(data[nidx] === 0) {
-                const dist = Math.sqrt(ox*ox + oy*oy);
-                if(dist < minDist) minDist = dist;
-              }
-            }
-function applyEdgeFade(imageData, width, height, radius) {
-  const data = imageData.data;
-  const getAlpha = (x, y) => {
-    if (x < 0 || x >= width || y < 0 || y >= height) return 0;
-    return data[(y * width + x) * 4 + 3];
-  };
-
-  const shouldFade = new Uint8Array(width * height);
-
-  // First pass: mark which pixels are near transparency
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      if (getAlpha(x, y) === 0) continue;
-
-      // Check surrounding pixels
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue;
-          if (getAlpha(x + dx, y + dy) === 0) {
-            shouldFade[idx] = 1;
-          }
-          if(minDist <= radius) {
-            const fade = minDist / radius;
-            data[idx] = Math.floor(data[idx] * fade);
-        }
-      }
-    }
-  }
-
-  // Second pass: apply fade only to marked pixels
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      if (!shouldFade[idx]) continue;
-
-      const alphaIdx = idx * 4 + 3;
-      let minDist = radius + 1;
-
-      // Find distance to nearest transparent pixel within radius
-      for (let oy = -radius; oy <= radius; oy++) {
-        for (let ox = -radius; ox <= radius; ox++) {
-          const nx = x + ox;
-          const ny = y + oy;
-          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-          if (getAlpha(nx, ny) === 0) {
-            const dist = Math.sqrt(ox * ox + oy * oy);
-            if (dist < minDist) minDist = dist;
-          }
-        }
-      }
-
-      if (minDist <= radius) {
-        const fade = minDist / radius;
-        data[alphaIdx] = Math.floor(data[alphaIdx] * fade);
-      }
-    }
-  }
-}
-
-
-    function mergeImageData(dest, src) {
-      const d = dest.data;
-      const s = src.data;
-      for(let i = 0; i < d.length; i += 4) {
-        if(s[i+3] === 0) continue;
-        if(d[i+3] === 0){
-          d[i] = s[i];
-          d[i+1] = s[i+1];
-          d[i+2] = s[i+2];
-          d[i+3] = s[i+3];
-        } else {
-          // Alpha blend normal way
-          const alphaS = s[i+3] / 255;
-          const alphaD = d[i+3] / 255;
-          const outA = alphaS + alphaD * (1 - alphaS);
-          if(outA === 0) continue;
-          d[i] = (s[i] * alphaS + d[i] * alphaD * (1 - alphaS)) / outA;
-          d[i+1] = (s[i+1] * alphaS + d[i+1] * alphaD * (1 - alphaS)) / outA;
-          d[i+2] = (s[i+2] * alphaS + d[i+2] * alphaD * (1 - alphaS)) / outA;
-          d[i+3] = outA * 255;
-        }
-      }
+      // Prepare ZIP
+      createZip(allShells);
     }
 
     function loadImage(src) {
-      return new Promise((resolve, reject) => {
+      return new Promise(resolve => {
         const img = new Image();
-        img.crossOrigin = "anonymous";
         img.onload = () => resolve(img);
-        img.onerror = reject;
         img.src = src;
       });
     }
 
-    document.getElementById('generateBtn').addEventListener('click', () => {
-      generateShells().catch(e => {
-        alert("Error during generation: " + e.message);
-        loadingSpinner.style.display = 'none';
+    async function createZip(shells) {
+      const zip = new JSZip();
+
+      for(let i = 0; i < shells.length; i++) {
+        const imgData = shells[i];
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = imgData.width;
+        exportCanvas.height = imgData.height;
+        const exportCtx = exportCanvas.getContext('2d');
+        exportCtx.putImageData(imgData, 0, 0);
+
+        // Await canvas to blob promise
+        await new Promise(res => exportCanvas.toBlob(blob => {
+          zip.file(`shell_layer_${i+1}.png`, blob);
+          res();
+        }, 'image/png'));
+      }
+
+      zip.generateAsync({type:"blob"}).then(content => {
+        downloadLink.href = URL.createObjectURL(content);
+        downloadLink.style.display = 'inline-block';
+        downloadLink.textContent = `Download ZIP (${shells.length} layers)`;
       });
-    });
+    }
+
+    document.getElementById('generateBtn').addEventListener('click', generateShells);
   </script>
 
 </body>
