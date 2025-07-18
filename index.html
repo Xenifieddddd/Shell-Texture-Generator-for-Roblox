@@ -379,29 +379,29 @@
     async function multiStepDownscale(img, maxDim = 1024) {
       let offscreen = document.createElement('canvas');
       let offctx = offscreen.getContext('2d');
-
+      
       let srcWidth = img.width;
       let srcHeight = img.height;
-
+      
       offscreen.width = srcWidth;
       offscreen.height = srcHeight;
       offctx.drawImage(img, 0, 0);
-
+      
       while (offscreen.width > maxDim || offscreen.height > maxDim) {
         let nextWidth = offscreen.width > maxDim ? Math.max(maxDim, Math.floor(offscreen.width / 2)) : offscreen.width;
         let nextHeight = offscreen.height > maxDim ? Math.max(maxDim, Math.floor(offscreen.height / 2)) : offscreen.height;
-
+        
         let temp = document.createElement('canvas');
         temp.width = nextWidth;
         temp.height = nextHeight;
         let tempCtx = temp.getContext('2d');
-
+        
         tempCtx.drawImage(offscreen, 0, 0, offscreen.width, offscreen.height, 0, 0, nextWidth, nextHeight);
-
+        
         offscreen = temp;
         offctx = tempCtx;
       }
-
+      
       return offscreen;
     }
 
@@ -656,14 +656,13 @@ const zip = new JSZip();
 
 // Show base layer first (top of the preview stack)
 {
-  const baseLayerData = finalLayers[0];
+  ;
   ctx.putImageData(baseLayerData, 0, 0);
   const baseURL = canvas.toDataURL('image/png');
 
   const baseImg = document.createElement('img');
   baseImg.src = baseURL;
-  baseImg.alt = 'Base Layer';
-  layerPreviews.insertBefore(baseImg, layerPreviews.firstChild);
+  baseImg.alt = 'Base Layer'const baseLayerData = finalLayers[0];
   layerPreviews.appendChild(baseImg);
 
   const base64 = baseURL.split(',')[1];
