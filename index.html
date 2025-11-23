@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,7 +7,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet" />
 <link rel="icon" href="SimpleShellLogo.ico" type="image/x-icon" />
 <style>
-  /* Base & Body */
   body {
     margin: 0; 
     background: #000;
@@ -16,12 +14,9 @@
     font-family: 'Orbitron', sans-serif;
     overflow-x: hidden;
     text-align: center;
-    position: relative;
     min-height: 100vh;
-    padding-bottom: 20px; /* no logo below now */
+    padding-bottom: 20px;
   }
-
-  /* Glass UI container */
   .glass-container {
     max-width: 600px;
     margin: 2rem auto 0 auto;
@@ -34,18 +29,11 @@
     position: relative;
     z-index: 10;
   }
-
-  h1, p, label {
-    margin: 0.5rem 0;
-    color: white;
-    text-shadow: 0 0 10px rgba(255 255 255 / 0.6);
-  }
-
-  /* Inputs styling (scaled down) */
+  h1, p, label { color:white; text-shadow:0 0 10px rgba(255 255 255 / 0.6);} 
   input[type="file"], input[type="number"], button {
     margin: 0.5rem 0;
-    padding: 0.3rem 0.8rem;    /* smaller padding */
-    font-size: 0.85rem;        /* smaller font */
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
     border-radius: 14px;
     border: none;
     outline: none;
@@ -54,528 +42,251 @@
     box-shadow: 0 0 12px rgba(255 255 255 / 0.2);
     cursor: pointer;
   }
-
-  /* File upload button style scaled down */
   input[type="file"]::-webkit-file-upload-button {
     background: rgba(255 255 255 / 0.25);
-    color: white;
-    padding: 0.3rem 0.8rem;    /* smaller padding */
-    font-size: 0.85rem;        /* smaller font */
-    border-radius: 12px;
-    border: none;
-    cursor: pointer;
-    text-shadow: 0 0 6px rgba(255 255 255 / 0.6);
+    color:white;
+    padding:0.3rem 0.8rem;
+    font-size:0.85rem;
+    border-radius:12px;
+    border:none;
+    cursor:pointer;
   }
-
-  /* Number input style: rounded box */
-  input[type="number"] {
-    width: 80px;
-    border-radius: 10px;
-    text-align: center;
-    -moz-appearance: textfield;
-  }
-  /* Remove number input arrows */
-  input[type=number]::-webkit-inner-spin-button, 
-  input[type=number]::-webkit-outer-spin-button { 
-    -webkit-appearance: none; 
-    margin: 0; 
-  }
-
-  /* Generate button */
+  input[type="number"] { width:80px; text-align:center; border-radius:10px; }
+  input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{ -webkit-appearance:none; }
   button {
     background: linear-gradient(135deg, white 0%, #ddd 100%);
-    color: #000;
-    font-weight: 700;
-    transition: background 0.3s ease;
+    color:#000; font-weight:700;
   }
-  button:hover {
-    background: linear-gradient(135deg, #ddd 0%, white 100%);
-  }
-
-  /* Download link button */
-  #downloadLink {
-    display: none;
-    margin-top: 1rem;
-    text-decoration: none;
-    padding: 0.6rem 1.2rem;
-    border-radius: 12px;
-    background: white;
-    color: black;
-    font-weight: 700;
-    user-select: none;
-    display: inline-block;
-  }
-
-  /* Cumulative toggle switch */
-  .switch {
-    position: relative;
-    display: inline-block;
-    width: 50px;
-    height: 26px;
-    vertical-align: middle;
-  }
-  .switch input { display:none; }
-  .slider {
-    position: absolute;
-    cursor: pointer;
-    background-color: black;
-    top: 0; left: 0; right: 0; bottom: 0;
-    border-radius: 34px;
-    transition: background-color 0.4s ease;
-  }
-  .slider::before {
-    position: absolute;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 4px;
-    bottom: 4px;
-    background-color: white;
-    border-radius: 50%;
-    transition: transform 0.4s ease;
-  }
-  input:checked + .slider {
-    background-color: #0f9d58;
-    box-shadow: 0 0 8px #0f9d58;
-  }
-  input:checked + .slider::before {
-    transform: translateX(24px);
-  }
-
-  /* Parallax stars container */
-  .parallax-stars {
-    position: fixed;
-    top: 0; left: 0;
-    width: 200vw;
-    height: 200vh;
-    pointer-events: none;
-    z-index: -10;
-  }
-  canvas.stars-canvas {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  /* Loading spinner */
-  #loadingSpinner {
-    margin: 1rem auto;
-    width: 48px;
-    height: 48px;
-    border: 5px solid rgba(255 255 255 / 0.15);
-    border-top-color: #1cff87;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    display: none;
-  }
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  /* Container for individual layer previews */
-  #layerPreviews {
-    max-width: 600px;
-    margin: 1.5rem auto 3rem auto;
-    max-height: 400px;
-    overflow-y: auto;
-    background: rgba(255 255 255 / 0.08);
-    border-radius: 20px;
-    padding: 10px;
-    box-shadow: 0 0 30px rgba(255 255 255 / 0.15);
-    border: 1px solid rgba(255 255 255 / 0.1);
-  }
-
-  /* Each layer preview image style */
-  #layerPreviews img {
-    width: 100%;
-    border-radius: 12px;
-    margin-bottom: 10px;
-    box-shadow: 0 0 12px rgba(255 255 255 / 0.3);
-    user-select: none;
-  }
+  #downloadLink { display:none; margin-top:1rem; padding:0.6rem 1.2rem; border-radius:12px; background:white; color:black; font-weight:700; }
+  .switch{ position:relative; display:inline-block; width:50px; height:26px; }
+  .switch input{ display:none; }
+  .slider{ position:absolute; cursor:pointer; background-color:black; top:0; left:0; right:0; bottom:0; border-radius:34px; transition:0.4s; }
+  .slider::before{ position:absolute; content:""; height:18px; width:18px; left:4px; bottom:4px; background:white; border-radius:50%; transition:0.4s; }
+  input:checked + .slider{ background-color:#0f9d58; box-shadow:0 0 8px #0f9d58; }
+  input:checked + .slider::before{ transform:translateX(24px); }
+  #layerPreviews { max-width:600px; margin:1.5rem auto 3rem auto; max-height:400px; overflow-y:auto; background:rgba(255 255 255 / 0.08); border-radius:20px; padding:10px; }
+  #layerPreviews img { width:100%; border-radius:12px; margin-bottom:10px; box-shadow:0 0 12px rgba(255 255 255 / 0.3);} 
 </style>
 </head>
 <body>
-
-  <div class="parallax-stars" id="parallaxStars"></div>
-
-  <div class="glass-container">
+<div class="glass-container">
     <h1>Simple Shell</h1>
     <p>Pixel-accurate shell texture generator for Roblox</p>
 
     <label>Upload Base Color Image:
       <input type="file" id="baseColor" accept="image/png, image/jpeg" />
-      <img id="previewBase" style="height:40px; vertical-align: middle; margin-left:10px; display:none; border-radius:6px; border:1px solid rgba(255 255 255 / 0.3);" />
-    </label><br />
+    </label><br/>
 
     <label>Upload Depth Map Image:
       <input type="file" id="depthMap" accept="image/png, image/jpeg" />
-      <img id="previewDepth" style="height:40px; vertical-align: middle; margin-left:10px; display:none; border-radius:6px; border:1px solid rgba(255 255 255 / 0.3);" />
-    </label><br />
+    </label><br/>
 
     <label>Number of Layers:
       <input type="number" id="layerCount" value="32" min="1" max="256" />
-    </label><br />
+    </label><br/>
 
     <label>Make shells cumulative:
-      <label class="switch">
-        <input type="checkbox" id="cumulative" />
-        <span class="slider"></span>
-      </label>
-    </label><br />
+      <label class="switch"><input type="checkbox" id="cumulative"><span class="slider"></span></label>
+    </label>
 
-    <!-- NEW toggle for multi-step downscale -->
+    <!-- NEW ACCUMULATION COUNT INPUT -->
+    <div style="margin-top:0.5rem;">
+      <label>Choose how many layers the shell texture will accumulate:</label><br>
+      <input type="number" id="accumCount" value="2" min="2" max="256" />
+    </div><br/>
+
     <label>Use Multi-step Downscale:
-      <label class="switch">
-        <input type="checkbox" id="multiStepDownscale" />
-        <span class="slider"></span>
-      </label>
-    </label><br />
+      <label class="switch"><input type="checkbox" id="multiStepDownscale"><span class="slider"></span></label>
+    </label><br/>
 
     <button id="generateBtn">Generate Shell Layers</button>
-
     <div id="loadingSpinner"></div>
-
     <a id="downloadLink" href="#" download="shell_layers.zip"></a>
-  </div>
+</div>
 
-  <div id="layerPreviews"></div>
+<div id="layerPreviews"></div>
+<canvas id="workingCanvas" style="display:none;"></canvas>
 
-  <canvas id="workingCanvas" style="display:none;"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<script>
+// FULLY PATCHED SHELL GENERATOR WITH ACCUMULATION LIMIT
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
-  <script>
-    // --- STARFIELD WITH MULTI LAYER PARALLAX & FLICKERING ---
-    const starLayers = 5;
-    const starsPerLayer = 150;
-    let starsData = [];
-    const parallaxStarsDiv = document.getElementById('parallaxStars');
+// --- IMAGE LOADING ---
+function loadImage(src){
+  return new Promise(resolve=>{ const img=new Image(); img.onload=()=>resolve(img); img.src=src; });
+}
 
-    for(let i = 0; i < starLayers; i++) {
-      const canvas = document.createElement('canvas');
-      canvas.classList.add('stars-canvas');
-      canvas.width = window.innerWidth * 2;
-      canvas.height = window.innerHeight * 2;
-      canvas.style.position = 'absolute';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
-      canvas.style.zIndex = (-starLayers + i).toString();
-      parallaxStarsDiv.appendChild(canvas);
+// --- MULTISTEP DOWNSCALE ---
+async function multiStepDownscale(img, maxDim=1024){
+  let c=document.createElement('canvas'); let cx=c.getContext('2d');
+  c.width=img.width; c.height=img.height; cx.drawImage(img,0,0);
+  while(c.width>maxDim || c.height>maxDim){
+    let nw=Math.max(maxDim, Math.floor(c.width/2));
+    let nh=Math.max(maxDim, Math.floor(c.height/2));
+    let t=document.createElement('canvas'); t.width=nw; t.height=nh;
+    t.getContext('2d').drawImage(c,0,0,c.width,c.height,0,0,nw,nh);
+    c=t;
+  }
+  return c;
+}
 
-      const stars = [];
-      for(let j = 0; j < starsPerLayer; j++) {
-        stars.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          size: Math.random() * (1.1 - 0.2) + 0.2,
-          baseAlpha: 0.5 + Math.random() * 0.5,
-          flickerPhase: Math.random() * Math.PI * 2,
-          flickerSpeed: 0.001 + Math.random() * 0.002,
-          canvas: canvas,
-          context: canvas.getContext('2d')
-        });
-      }
-      starsData.push(stars);
-    }
+// --- MAIN GENERATOR ---
+async function generateShells(){
+  const baseFile=document.getElementById('baseColor').files[0];
+  const depthFile=document.getElementById('depthMap').files[0];
+  const layerCountRaw=parseInt(document.getElementById('layerCount').value);
+  const cumulative=document.getElementById('cumulative').checked;
+  const useMultiStep=document.getElementById('multiStepDownscale').checked;
 
-    let mouseX = 0, mouseY = 0;
-    let currentX = 0, currentY = 0;
+  let accumVal=parseInt(document.getElementById('accumCount').value);
+  if(accumVal>layerCountRaw) accumVal=2;
+  window._accumLimit=accumVal;
 
-    window.addEventListener('mousemove', e => {
-      mouseX = e.clientX / window.innerWidth - 0.5;
-      mouseY = e.clientY / window.innerHeight - 0.5;
-    });
+  const layerCount=Math.min(256,Math.max(1,layerCountRaw));
+  const spinner=document.getElementById('loadingSpinner');
+  const previews=document.getElementById('layerPreviews');
+  const downloadLink=document.getElementById('downloadLink');
+  const canvas=document.getElementById('workingCanvas');
+  const ctx=canvas.getContext('2d');
 
-    function drawStars() {
-      starsData.forEach((stars, layer) => {
-        const ctx = stars[0].context;
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        stars.forEach(star => {
-          star.flickerPhase += star.flickerSpeed;
-          const alpha = star.baseAlpha + Math.sin(star.flickerPhase) * 0.3;
-          const parallaxFactor = (layer + 1) / starLayers;
-          const offsetX = currentX * 30 * parallaxFactor;
-          const offsetY = currentY * 30 * parallaxFactor;
+  previews.innerHTML='';
+  downloadLink.style.display='none';
+  spinner.style.display='block';
 
-          ctx.beginPath();
-          const glowAlpha = Math.min(Math.max(alpha, 0), 1);
-          const glowColor = `rgba(255,255,255,${glowAlpha})`;
-          ctx.shadowColor = glowColor;
-          ctx.shadowBlur = 8;
-          ctx.fillStyle = glowColor;
-          ctx.arc(star.x + offsetX, star.y + offsetY, star.size, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.shadowBlur = 0;
-        });
-      });
-    }
+  if(!baseFile || !depthFile){ alert("Please upload both images."); spinner.style.display='none'; return; }
 
-    function updateParallax() {
-      currentX += (mouseX - currentX) * 0.075;
-      currentY += (mouseY - currentY) * 0.075;
-      drawStars();
-      requestAnimationFrame(updateParallax);
-    }
-    updateParallax();
+  let baseImg=await loadImage(URL.createObjectURL(baseFile));
+  let depthImg=await loadImage(URL.createObjectURL(depthFile));
 
-    // --- IMAGE PREVIEWS FOR UPLOADED FILES ---
-    function previewImage(inputId, imgId) {
-      const input = document.getElementById(inputId);
-      const preview = document.getElementById(imgId);
-      input.addEventListener('change', () => {
-        if(input.files && input.files[0]){
-          const url = URL.createObjectURL(input.files[0]);
-          preview.src = url;
-          preview.style.display = 'inline-block';
-        } else {
-          preview.src = '';
-          preview.style.display = 'none';
+  if(useMultiStep && (baseImg.width>1024 || baseImg.height>1024)) baseImg=await multiStepDownscale(baseImg,1024);
+  if(useMultiStep && (depthImg.width>1024 || depthImg.height>1024)) depthImg=await multiStepDownscale(depthImg,1024);
+
+  let scale=1;
+  if(!useMultiStep && (baseImg.width>1024 || baseImg.height>1024)){
+    scale=Math.min(1024/baseImg.width,1024/baseImg.height);
+  }
+
+  const width = useMultiStep ? baseImg.width : Math.floor(baseImg.width*scale);
+  const height = useMultiStep ? baseImg.height : Math.floor(baseImg.height*scale);
+
+  canvas.width=width; canvas.height=height;
+
+  // Base
+  ctx.drawImage(baseImg,0,0,width,height);
+  const baseData=ctx.getImageData(0,0,width,height);
+
+  // Depth
+  ctx.drawImage(depthImg,0,0,width,height);
+  const depthData=ctx.getImageData(0,0,width,height);
+
+  const shells=[];
+  const fadeRadius=6;
+
+  for(let layer=0; layer<layerCount; layer++){
+    const imgData=ctx.createImageData(width,height);
+
+    const layerThreshold = layer/(layerCount-1);
+    const limit=window._accumLimit;
+    const start = Math.max(0, layerCount - limit);
+
+    for(let i=0;i<baseData.data.length;i+=4){
+      const depthVal=depthData.data[i]/255;
+
+      let visible=false;
+      if(cumulative){
+        // FIX: smooth early-layer accumulation
+        // Idea:
+        // Instead of checking absolute depth thresholds tied to layer index,
+        // we remap the current layer window (limited by accumLimit) into a
+        // depth window. This avoids early empty layers.
+
+        const limit = window._accumLimit;
+
+        // Determine the first layer that should affect this shell
+        // Example: limit=4 → layer0 uses 0→0, layer1 uses 0→1, layer2 uses 0→2...
+        const startLayer = Math.max(0, layer - (limit - 1));
+        const endLayer   = layer;
+
+        // Convert both to depth thresholds
+        const minDepth = startLayer / (layerCount - 1);
+        const maxDepth = endLayer   / (layerCount - 1);
+
+        // Pixel is visible if depth falls inside this continuous window
+        if(depthVal >= minDepth && depthVal <= maxDepth){
+          visible = true;
         }
-      });
-    }
-    previewImage('baseColor', 'previewBase');
-    previewImage('depthMap', 'previewDepth');
-
-    // --- SHELL GENERATION ---
-
-    const canvas = document.getElementById('workingCanvas');
-    const ctx = canvas.getContext('2d');
-
-    const loadingSpinner = document.getElementById('loadingSpinner');
-    const downloadLink = document.getElementById('downloadLink');
-    const layerPreviews = document.getElementById('layerPreviews');
-
-    let width = 0;
-    let height = 0;
-
-    let currentZipUrl = null;
-
-    // Multi-step downscale function: progressively scale down large images to maxDim preserving quality
-    async function multiStepDownscale(img, maxDim = 1024) {
-      let offscreen = document.createElement('canvas');
-      let offctx = offscreen.getContext('2d');
-      
-      let srcWidth = img.width;
-      let srcHeight = img.height;
-      
-      offscreen.width = srcWidth;
-      offscreen.height = srcHeight;
-      offctx.drawImage(img, 0, 0);
-      
-      while (offscreen.width > maxDim || offscreen.height > maxDim) {
-        let nextWidth = offscreen.width > maxDim ? Math.max(maxDim, Math.floor(offscreen.width / 2)) : offscreen.width;
-        let nextHeight = offscreen.height > maxDim ? Math.max(maxDim, Math.floor(offscreen.height / 2)) : offscreen.height;
-        
-        let temp = document.createElement('canvas');
-        temp.width = nextWidth;
-        temp.height = nextHeight;
-        let tempCtx = temp.getContext('2d');
-        
-        tempCtx.drawImage(offscreen, 0, 0, offscreen.width, offscreen.height, 0, 0, nextWidth, nextHeight);
-        
-        offscreen = temp;
-        offctx = tempCtx;
+      } else {
+        const bandMin = layer/layerCount;
+        const bandMax = (layer+1)/layerCount;
+        if(depthVal>bandMin && depthVal<=bandMax) visible=true;
       }
-      
-      return offscreen;
+
+      if(visible){
+        imgData.data[i]=baseData.data[i];
+        imgData.data[i+1]=baseData.data[i+1];
+        imgData.data[i+2]=baseData.data[i+2];
+        imgData.data[i+3]=baseData.data[i+3];
+      } else imgData.data[i+3]=0;
     }
 
-    async function generateShells() {
-      downloadLink.style.display = 'none';
-      layerPreviews.innerHTML = '';
-      loadingSpinner.style.display = 'block';
+    // EDGE FADE
+    const alphaCopy=new Uint8ClampedArray(imgData.data.length/4);
+    for(let p=0;p<alphaCopy.length;p++) alphaCopy[p]=imgData.data[p*4+3];
 
-      if(currentZipUrl){
-        URL.revokeObjectURL(currentZipUrl);
-        currentZipUrl = null;
-      }
+    for(let y=0;y<height;y++){
+      for(let x=0;x<width;x++){
+        const idx=y*width+x;
+        if(alphaCopy[idx]===0) continue;
+        let minDist=fadeRadius+1;
 
-      const baseFile = document.getElementById('baseColor').files[0];
-      const depthFile = document.getElementById('depthMap').files[0];
-      const userLayerCountRaw = parseInt(document.getElementById('layerCount').value);
-      const userLayerCount = Math.min(256, Math.max(1, userLayerCountRaw));
-      const cumulative = document.getElementById('cumulative').checked;
-      const useMultiStep = document.getElementById('multiStepDownscale').checked;
-
-      if(!baseFile || !depthFile) {
-        alert("Please upload both base color and depth map images.");
-        loadingSpinner.style.display = 'none';
-        return;
-      }
-
-      let baseImg = await loadImage(URL.createObjectURL(baseFile));
-      let depthImg = await loadImage(URL.createObjectURL(depthFile));
-
-      if(useMultiStep && (baseImg.width > 1024 || baseImg.height > 1024)) {
-        baseImg = await multiStepDownscale(baseImg, 1024);
-      }
-      if(useMultiStep && (depthImg.width > 1024 || depthImg.height > 1024)) {
-        depthImg = await multiStepDownscale(depthImg, 1024);
-      }
-
-      let scale = 1;
-      if(!useMultiStep) {
-        if(baseImg.width > 1024 || baseImg.height > 1024) {
-          scale = Math.min(1024 / baseImg.width, 1024 / baseImg.height);
-        }
-      }
-
-      width = useMultiStep ? baseImg.width : Math.floor(baseImg.width * scale);
-      height = useMultiStep ? baseImg.height : Math.floor(baseImg.height * scale);
-
-      canvas.width = width;
-      canvas.height = height;
-
-      ctx.clearRect(0, 0, width, height);
-      ctx.drawImage(baseImg, 0, 0, width, height);
-      const baseData = ctx.getImageData(0, 0, width, height);
-
-      ctx.clearRect(0, 0, width, height);
-      ctx.drawImage(depthImg, 0, 0, width, height);
-      const depthData = ctx.getImageData(0, 0, width, height);
-
-      const allShells = [];
-
-      // INTERNAL LAYER COUNT: 3x user layers, capped at 512 max
-      const internalLayerCount = Math.min(512, userLayerCount * 3);
-
-      // EDGE FADE SETTINGS - stronger fade radius based on fuzziness analogy
-      const fadeRadius = 6; // increased from 3 to 6 pixels for more visible and smoother fade
-
-      for(let layer = 0; layer < userLayerCount; layer++) {
-        const imgData = ctx.createImageData(width, height);
-
-        // Map the current user layer to a depth range over the internalLayerCount steps
-        // We pick internal layers corresponding to this user layer range:
-        const startInternalLayer = Math.floor(layer * (internalLayerCount / userLayerCount));
-        const endInternalLayer = Math.floor((layer + 1) * (internalLayerCount / userLayerCount));
-
-        for(let i = 0; i < baseData.data.length; i += 4){
-          // Normalize depth from 0 to 1
-          const depthVal = depthData.data[i] / 255;
-
-          if(cumulative) {
-            // cumulative shells: include all pixels with depth >= layer threshold
-            const layerThreshold = layer / (userLayerCount - 1);
-            if(depthVal >= layerThreshold) {
-              imgData.data[i] = baseData.data[i];
-              imgData.data[i+1] = baseData.data[i+1];
-              imgData.data[i+2] = baseData.data[i+2];
-              imgData.data[i+3] = baseData.data[i+3];
-            } else {
-              imgData.data[i+3] = 0;
-            }
-          } else {
-            // non-cumulative shells: include pixels in this shell's depth band by interpolating over internal layers
-            const shellMin = startInternalLayer / internalLayerCount;
-            const shellMax = endInternalLayer / internalLayerCount;
-            if(depthVal > shellMin && depthVal <= shellMax){
-              imgData.data[i] = baseData.data[i];
-              imgData.data[i+1] = baseData.data[i+1];
-              imgData.data[i+2] = baseData.data[i+2];
-              imgData.data[i+3] = baseData.data[i+3];
-            } else {
-              imgData.data[i+3] = 0;
+        for(let oy=-fadeRadius;oy<=fadeRadius;oy++){
+          for(let ox=-fadeRadius;ox<=fadeRadius;ox++){
+            if(ox===0 && oy===0) continue;
+            const nx=x+ox, ny=y+oy;
+            if(nx<0||nx>=width||ny<0||ny>=height) continue;
+            const nIdx=ny*width+nx;
+            if(alphaCopy[nIdx]===0){
+              const d=Math.sqrt(ox*ox+oy*oy);
+              if(d<minDist) minDist=d;
             }
           }
         }
 
-        // EDGE OPACITY FADE
-        // Copy original alpha channel for reference
-        const alphaOrig = new Uint8ClampedArray(imgData.data.length / 4);
-        for(let p = 0; p < alphaOrig.length; p++) {
-          alphaOrig[p] = imgData.data[p * 4 + 3];
+        if(minDist<=fadeRadius){
+          const f=minDist/fadeRadius;
+          imgData.data[idx*4+3]=Math.floor(alphaCopy[idx]*f);
         }
-
-        for(let y = 0; y < height; y++) {
-          for(let x = 0; x < width; x++) {
-            const idx = y * width + x;
-            if(alphaOrig[idx] === 0) continue;
-
-            let minDist = fadeRadius + 1;
-
-            // Check neighbors within fadeRadius for transparent pixels to create a soft alpha fade
-            for(let oy = -fadeRadius; oy <= fadeRadius; oy++) {
-              for(let ox = -fadeRadius; ox <= fadeRadius; ox++) {
-                if(ox === 0 && oy === 0) continue;
-                const nx = x + ox;
-                const ny = y + oy;
-                if(nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-                const nIdx = ny * width + nx;
-                if(alphaOrig[nIdx] === 0) {
-                  const dist = Math.sqrt(ox * ox + oy * oy);
-                  if(dist < minDist) minDist = dist;
-                }
-              }
-            }
-
-            if(minDist <= fadeRadius) {
-              // Linearly fade alpha by distance to nearest transparent pixel, stronger fade near edges
-              const fadeFactor = minDist / fadeRadius;
-              imgData.data[idx * 4 + 3] = Math.floor(alphaOrig[idx] * fadeFactor);
-            }
-          }
-        }
-
-        allShells.push(imgData);
       }
-
-      // Render preview images below
-      for(let i = 0; i < allShells.length; i++) {
-        const exportCanvas = document.createElement('canvas');
-        exportCanvas.width = width;
-        exportCanvas.height = height;
-        const exportCtx = exportCanvas.getContext('2d');
-        exportCtx.putImageData(allShells[i], 0, 0);
-
-        const img = document.createElement('img');
-        img.src = exportCanvas.toDataURL('image/png');
-        img.alt = `Shell Layer ${i + 1}`;
-        layerPreviews.appendChild(img);
-      }
-
-      loadingSpinner.style.display = 'none';
-
-      // Prepare ZIP
-      await createZip(allShells);
     }
 
-    // Helper to load image as HTMLImageElement or canvas if multiStepDownscale returns one
-    function loadImage(src) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => resolve(img);
-        img.src = src;
-      });
-    }
+    shells.push(imgData);
 
-    async function createZip(allShells) {
-      const zip = new JSZip();
+    // Preview
+    const prev=document.createElement('canvas');
+    prev.width=width; prev.height=height;
+    prev.getContext('2d').putImageData(imgData,0,0);
+    const img=document.createElement('img');
+    img.src=prev.toDataURL('image/png');
+    previews.appendChild(img);
+  }
 
-      for(let i = 0; i < allShells.length; i++) {
-        const c = document.createElement('canvas');
-        c.width = width;
-        c.height = height;
-        c.getContext('2d').putImageData(allShells[i], 0, 0);
+  spinner.style.display='none';
 
-        // Convert canvas to blob, add to zip
-        const blob = await new Promise(resolve => c.toBlob(resolve, 'image/png'));
-        zip.file(`shell_layer_${(i + 1).toString().padStart(3, '0')}.png`, blob);
-      }
+  // ZIP EXPORT
+  const zip=new JSZip();
+  for(let i=0;i<shells.length;i++){
+    const c=document.createElement('canvas'); c.width=width; c.height=height;
+    c.getContext('2d').putImageData(shells[i],0,0);
+    const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+    zip.file(`shell_layer_${String(i+1).padStart(3,'0')}.png`,blob);
+  }
+  const content=await zip.generateAsync({type:'blob'});
+  const url=URL.createObjectURL(content);
+  downloadLink.href=url; downloadLink.style.display='inline-block';
+  downloadLink.textContent=`Download ${shells.length} shell layers (zip)`;
+}
 
-      const content = await zip.generateAsync({type: 'blob'});
-      if(currentZipUrl){
-        URL.revokeObjectURL(currentZipUrl);
-      }
-      currentZipUrl = URL.createObjectURL(content);
-      downloadLink.href = currentZipUrl;
-      downloadLink.style.display = 'inline-block';
-      downloadLink.textContent = `Download ${allShells.length} shell layers (zip)`;
-    }
-
-    document.getElementById('generateBtn').addEventListener('click', generateShells);
-
-  </script>
+document.getElementById('generateBtn').addEventListener('click',generateShells);
+</script>
 </body>
 </html>
