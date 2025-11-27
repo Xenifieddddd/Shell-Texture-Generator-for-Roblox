@@ -114,6 +114,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 
 <script>
+// --- STAR FIELD WITH PARALLAX AND TWINKLE ---
 const starCanvas = document.getElementById('starCanvas');
 const sCtx = starCanvas.getContext('2d');
 
@@ -193,7 +194,11 @@ animateStars();
 <script>
 // --- IMAGE LOADING ---
 function loadImage(src){
-  return new Promise(resolve=>{ const img=new Image(); img.onload=()=>resolve(img); img.src=src; });
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>resolve(img);
+    img.src=src;
+  });
 }
 
 // --- MULTISTEP DOWNSCALE ---
@@ -261,16 +266,14 @@ async function generateShells(){
   const shells=[];
   const fadeRadius=6;
 
-  const flipDepth = cumulative && accumVal === layerCount; // flip black-to-white when full cumulative
-
   for(let layer=0; layer<layerCount; layer++){
     const imgData=ctx.createImageData(width,height);
 
     for(let i=0;i<baseData.data.length;i+=4){
       const depthVal=depthData.data[i]/255;
-      const d = flipDepth ? 1 - depthVal : depthVal;
-      let visible=false;
+      const d = 1 - depthVal; // <--- Always black-to-white
 
+      let visible=false;
       if(cumulative){
         const limit = window._accumLimit;
         let startLayer = 0;
@@ -298,7 +301,6 @@ async function generateShells(){
     // EDGE FADE
     const alphaCopy=new Uint8ClampedArray(imgData.data.length/4);
     for(let p=0;p<alphaCopy.length;p++) alphaCopy[p]=imgData.data[p*4+3];
-
     for(let y=0;y<height;y++){
       for(let x=0;x<width;x++){
         const idx=y*width+x;
@@ -311,8 +313,8 @@ async function generateShells(){
             if(nx<0||nx>=width||ny<0||ny>=height) continue;
             const nIdx=ny*width+nx;
             if(alphaCopy[nIdx]===0){
-              const d=Math.sqrt(ox*ox+oy*oy);
-              if(d<minDist) minDist=d;
+              const dist=Math.sqrt(ox*ox+oy*oy);
+              if(dist<minDist) minDist=dist;
             }
           }
         }
