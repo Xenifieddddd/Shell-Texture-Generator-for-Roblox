@@ -114,7 +114,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 
 <script>
-// --- STAR FIELD WITH PARALLAX AND TWINKLE ---
 const starCanvas = document.getElementById('starCanvas');
 const sCtx = starCanvas.getContext('2d');
 
@@ -262,26 +261,30 @@ async function generateShells(){
   const shells=[];
   const fadeRadius=6;
 
+  const flipDepth = cumulative && accumVal === layerCount; // flip black-to-white when full cumulative
+
   for(let layer=0; layer<layerCount; layer++){
     const imgData=ctx.createImageData(width,height);
 
     for(let i=0;i<baseData.data.length;i+=4){
       const depthVal=depthData.data[i]/255;
+      const d = flipDepth ? 1 - depthVal : depthVal;
       let visible=false;
+
       if(cumulative){
         const limit = window._accumLimit;
         let startLayer = 0;
         if(limit < layerCount){
-          startLayer = Math.max(0, layer - (limit - 1)); // limited accumulation
+          startLayer = Math.max(0, layer - (limit - 1));
         }
         const endLayer = layer;
         const minDepth = startLayer / (layerCount - 1);
         const maxDepth = endLayer / (layerCount - 1);
-        if(depthVal >= minDepth && depthVal <= maxDepth) visible = true;
+        if(d >= minDepth && d <= maxDepth) visible = true;
       } else {
         const bandMin = layer/layerCount;
         const bandMax = (layer+1)/layerCount;
-        if(depthVal>bandMin && depthVal<=bandMax) visible=true;
+        if(d>bandMin && d<=bandMax) visible=true;
       }
 
       if(visible){
@@ -322,7 +325,7 @@ async function generateShells(){
 
     // PREVIEW & EXPORT ORDER
     if(cumulative && window._accumLimit === layerCount){
-      shells.unshift(imgData); // full accumulation → reverse
+      shells.unshift(imgData);
       const prev=document.createElement('canvas');
       prev.width=width; prev.height=height;
       prev.getContext('2d').putImageData(imgData,0,0);
@@ -330,7 +333,7 @@ async function generateShells(){
       img.src=prev.toDataURL('image/png');
       previews.insertBefore(img, previews.firstChild);
     } else {
-      shells.push(imgData); // limited accumulation → normal order
+      shells.push(imgData);
       const prev=document.createElement('canvas');
       prev.width=width; prev.height=height;
       prev.getContext('2d').putImageData(imgData,0,0);
