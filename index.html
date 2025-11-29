@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,9 +6,10 @@
 <title>Simple Shell - Roblox Texture Layer Tool</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap" rel="stylesheet" />
 <link rel="icon" href="SimpleShellLogo.ico" type="image/x-icon" />
+
 <style>
-  body {
-    margin: 0; 
+body {
+    margin: 0;
     background: #000;
     color: #fff;
     font-family: 'Orbitron', sans-serif;
@@ -17,8 +17,8 @@
     text-align: center;
     min-height: 100vh;
     padding-bottom: 20px;
-  }
-  .glass-container {
+}
+.glass-container {
     max-width: 600px;
     margin: 2rem auto 0 auto;
     background: rgba(255 255 255 / 0.06);
@@ -29,9 +29,14 @@
     backdrop-filter: blur(15px);
     position: relative;
     z-index: 10;
-  }
-  h1, p, label { color:white; text-shadow:0 0 10px rgba(255 255 255 / 0.6);} 
-  input[type="file"], input[type="number"], button {
+}
+h1, p, label {
+    color:white;
+    text-shadow:0 0 10px rgba(255 255 255 / 0.6);
+}
+input[type="file"],
+input[type="number"],
+button {
     margin: 0.5rem 0;
     padding: 0.3rem 0.8rem;
     font-size: 0.85rem;
@@ -42,8 +47,8 @@
     color: white;
     box-shadow: 0 0 12px rgba(255 255 255 / 0.2);
     cursor: pointer;
-  }
-  input[type="file"]::-webkit-file-upload-button {
+}
+input[type="file"]::-webkit-file-upload-button {
     background: rgba(255 255 255 / 0.25);
     color:white;
     padding:0.3rem 0.8rem;
@@ -51,27 +56,89 @@
     border-radius:12px;
     border:none;
     cursor:pointer;
-  }
-  input[type="number"] { width:80px; text-align:center; border-radius:10px; }
-  input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{ -webkit-appearance:none; }
-  button {
+}
+input[type="number"] {
+    width:80px;
+    text-align:center;
+    border-radius:10px;
+}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance:none;
+}
+button {
     background: linear-gradient(135deg, white 0%, #ddd 100%);
-    color:#000; font-weight:700;
-  }
-  #downloadLink { display:none; margin-top:1rem; padding:0.6rem 1.2rem; border-radius:12px; background:white; color:black; font-weight:700; }
-  .switch{ position:relative; display:inline-block; width:50px; height:26px; }
-  .switch input{ display:none; }
-  .slider{ position:absolute; cursor:pointer; background-color:black; top:0; left:0; right:0; bottom:0; border-radius:34px; transition:0.4s; }
-  .slider::before{ position:absolute; content:""; height:18px; width:18px; left:4px; bottom:4px; background:white; border-radius:50%; transition:0.4s; }
-  input:checked + .slider{ background-color:#0f9d58; box-shadow:0 0 8px #0f9d58; }
-  input:checked + .slider::before{ transform:translateX(24px); }
-  #layerPreviews { max-width:600px; margin:1.5rem auto 3rem auto; max-height:400px; overflow-y:auto; background:rgba(255 255 255 / 0.08); border-radius:20px; padding:10px; }
-  #layerPreviews img { width:100%; border-radius:12px; margin-bottom:10px; box-shadow:0 0 12px rgba(255 255 255 / 0.3);} 
+    color:#000;
+    font-weight:700;
+}
+#downloadLink {
+    display:none;
+    margin-top:1rem;
+    padding:0.6rem 1.2rem;
+    border-radius:12px;
+    background:white;
+    color:black;
+    font-weight:700;
+}
+.switch {
+    position:relative;
+    display:inline-block;
+    width:50px;
+    height:26px;
+}
+.switch input {
+    display:none;
+}
+.slider {
+    position:absolute;
+    cursor:pointer;
+    background-color:black;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+    border-radius:34px;
+    transition:0.4s;
+}
+.slider::before {
+    position:absolute;
+    content:"";
+    height:18px;
+    width:18px;
+    left:4px;
+    bottom:4px;
+    background:white;
+    border-radius:50%;
+    transition:0.4s;
+}
+input:checked + .slider {
+    background-color:#0f9d58;
+    box-shadow:0 0 8px #0f9d58;
+}
+input:checked + .slider::before {
+    transform:translateX(24px);
+}
+#layerPreviews {
+    max-width:600px;
+    margin:1.5rem auto 3rem auto;
+    max-height:400px;
+    overflow-y:auto;
+    background:rgba(255 255 255 / 0.08);
+    border-radius:20px;
+    padding:10px;
+}
+#layerPreviews img {
+    width:100%;
+    border-radius:12px;
+    margin-bottom:10px;
+    box-shadow:0 0 12px rgba(255 255 255 / 0.3);
+}
 </style>
 </head>
+
 <body>
 
-<!-- STAR CANVAS -->
+<!-- STAR FIELD CANVAS -->
 <canvas id="starCanvas" style="position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:0;"></canvas>
 
 <div class="glass-container">
@@ -79,32 +146,38 @@
     <p>Pixel-accurate shell texture generator for Roblox</p>
 
     <label>Upload Base Color Image:
-      <input type="file" id="baseColor" accept="image/png, image/jpeg" />
+        <input type="file" id="baseColor" accept="image/png, image/jpeg" />
     </label><br/>
 
     <label>Upload Depth Map Image:
-      <input type="file" id="depthMap" accept="image/png, image/jpeg" />
+        <input type="file" id="depthMap" accept="image/png, image/jpeg" />
     </label><br/>
 
     <label>Number of Layers:
-      <input type="number" id="layerCount" value="32" min="1" max="256" />
+        <input type="number" id="layerCount" value="32" min="1" max="256" />
     </label><br/>
 
     <label>Make shells cumulative:
-      <label class="switch"><input type="checkbox" id="cumulative"><span class="slider"></span></label>
+        <label class="switch">
+            <input type="checkbox" id="cumulative">
+            <span class="slider"></span>
+        </label>
     </label>
 
-    <!-- CUMULATIVE LAYER INPUT -->
     <div style="margin-top:0.5rem;">
-      <label>Choose how many layers the shell texture will accumulate:</label><br>
-      <input type="number" id="accumCount" min="1" max="256" placeholder="..." />
+        <label>Choose how many layers the shell texture will accumulate:</label><br>
+        <input type="number" id="accumCount" min="1" max="256" placeholder="..." />
     </div><br/>
 
     <label>Use Multi-step Downscale:
-      <label class="switch"><input type="checkbox" id="multiStepDownscale"><span class="slider"></span></label>
+        <label class="switch">
+            <input type="checkbox" id="multiStepDownscale">
+            <span class="slider"></span>
+        </label>
     </label><br/>
 
     <button id="generateBtn">Generate Shell Layers</button>
+
     <div id="loadingSpinner"></div>
     <a id="downloadLink" href="#" download="shell_layers.zip"></a>
 </div>
@@ -115,278 +188,285 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 
 <script>
-// --- STAR FIELD WITH PARALLAX AND TWINKLE ---
+/* ---------------- STARFIELD ---------------- */
 const starCanvas = document.getElementById('starCanvas');
 const sCtx = starCanvas.getContext('2d');
-
 let stars = [];
 const layers = [
-  { count: 100, sizeRange: [1,2], speed: 0.02 },
-  { count: 70,  sizeRange: [1.5,3], speed: 0.04 },
-  { count: 50,  sizeRange: [2,4], speed: 0.06 }
+    { count: 100, sizeRange: [1,2], speed: 0.02 },
+    { count: 70, sizeRange: [1.5,3], speed: 0.04 },
+    { count: 50, sizeRange: [2,4], speed: 0.06 }
 ];
 
 function resizeCanvas() {
-  starCanvas.width = window.innerWidth;
-  starCanvas.height = window.innerHeight;
-  generateStars();
+    starCanvas.width = window.innerWidth;
+    starCanvas.height = window.innerHeight;
+    generateStars();
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
 function generateStars() {
-  stars = [];
-  for(let l=0; l<layers.length; l++){
-    const layer = layers[l];
-    for(let i=0; i<layer.count; i++){
-      stars.push({
-        layer:l,
-        x: Math.random() * starCanvas.width,
-        y: Math.random() * starCanvas.height,
-        baseX: 0,
-        baseY: 0,
-        size: layer.sizeRange[0] + Math.random()*(layer.sizeRange[1]-layer.sizeRange[0]),
-        brightness: 0.5 + Math.random()*0.5,
-        twinkleDir: Math.random()<0.5?1:-1
-      });
+    stars = [];
+    for(let l=0; l<layers.length; l++){
+        const layer = layers[l];
+        for(let i=0; i<layer.count; i++){
+            stars.push({
+                layer:l,
+                x: Math.random() * starCanvas.width,
+                y: Math.random() * starCanvas.height,
+                baseX: 0,
+                baseY: 0,
+                size: layer.sizeRange[0] + Math.random()*(layer.sizeRange[1]-layer.sizeRange[0]),
+                brightness: 0.5 + Math.random()*0.5,
+                twinkleDir: Math.random()<0.5?1:-1
+            });
+        }
     }
-  }
 }
 
-let mouse = {x:0.5, y:0.5};
+let mouse={x:0.5,y:0.5};
 document.addEventListener('mousemove', e=>{
-  mouse.x = e.clientX / window.innerWidth;
-  mouse.y = e.clientY / window.innerHeight;
+    mouse.x=e.clientX/window.innerWidth;
+    mouse.y=e.clientY/window.innerHeight;
 });
 
-function lerp(a,b,t){ return a + (b-a)*t; }
+function lerp(a,b,t){return a+(b-a)*t;}
 
-function animateStars(){
-  sCtx.clearRect(0,0,starCanvas.width,starCanvas.height);
-  for(let star of stars){
-    const layer = layers[star.layer];
-    
-    star.baseX = lerp(star.baseX, (mouse.x-0.5)*layer.speed*starCanvas.width, 0.05);
-    star.baseY = lerp(star.baseY, (mouse.y-0.5)*layer.speed*starCanvas.height, 0.05);
+function animateStars() {
+    sCtx.clearRect(0,0,starCanvas.width,starCanvas.height);
+    for(let star of stars){
+        const layer = layers[star.layer];
+        star.baseX = lerp(star.baseX,(mouse.x-0.5)*layer.speed*starCanvas.width,0.05);
+        star.baseY = lerp(star.baseY,(mouse.y-0.5)*layer.speed*starCanvas.height,0.05);
 
-    star.brightness += 0.01 * star.twinkleDir;
-    if(star.brightness>1){ star.brightness=1; star.twinkleDir=-1; }
-    if(star.brightness<0.3){ star.brightness=0.3; star.twinkleDir=1; }
+        star.brightness += 0.01*star.twinkleDir;
+        if(star.brightness>1){ star.brightness=1; star.twinkleDir=-1;}
+        if(star.brightness<0.3){ star.brightness=0.3; star.twinkleDir=1;}
 
-    const grd = sCtx.createRadialGradient(
-      star.x + star.baseX, star.y + star.baseY, 0,
-      star.x + star.baseX, star.y + star.baseY, star.size
-    );
-    grd.addColorStop(0, `rgba(255,255,255,${star.brightness})`);
-    grd.addColorStop(0.3, `rgba(255,255,255,${star.brightness*0.6})`);
-    grd.addColorStop(0.6, `rgba(255,255,255,${star.brightness*0.2})`);
-    grd.addColorStop(1, `rgba(255,255,255,0)`);
+        const grd=sCtx.createRadialGradient(
+            star.x+star.baseX, star.y+star.baseY, 0,
+            star.x+star.baseX, star.y+star.baseY, star.size
+        );
+        grd.addColorStop(0, `rgba(255,255,255,${star.brightness})`);
+        grd.addColorStop(0.3, `rgba(255,255,255,${star.brightness*0.6})`);
+        grd.addColorStop(0.6, `rgba(255,255,255,${star.brightness*0.2})`);
+        grd.addColorStop(1, `rgba(255,255,255,0)`);
 
-    sCtx.fillStyle = grd;
-    sCtx.beginPath();
-    sCtx.arc(star.x + star.baseX, star.y + star.baseY, star.size, 0, Math.PI*2);
-    sCtx.fill();
-  }
-  requestAnimationFrame(animateStars);
+        sCtx.fillStyle = grd;
+        sCtx.beginPath();
+        sCtx.arc(star.x+star.baseX,star.y+star.baseY,star.size,0,Math.PI*2);
+        sCtx.fill();
+    }
+    requestAnimationFrame(animateStars);
 }
 animateStars();
 </script>
 
 <script>
-// --- IMAGE LOADING ---
+/* ---------------- IMAGE LOADING ---------------- */
 function loadImage(src){
-  return new Promise(resolve=>{
-    const img=new Image();
-    img.onload=()=>resolve(img);
-    img.src=src;
-  });
+    return new Promise(resolve=>{
+        const img=new Image();
+        img.onload=()=>resolve(img);
+        img.src=src;
+    });
 }
 
-// --- MULTISTEP DOWNSCALE ---
-async function multiStepDownscale(img, maxDim=1024){
-  let c=document.createElement('canvas'); let cx=c.getContext('2d');
-  c.width=img.width; c.height=img.height; cx.drawImage(img,0,0);
-  while(c.width>maxDim || c.height>maxDim){
-    let nw=Math.max(maxDim, Math.floor(c.width/2));
-    let nh=Math.max(maxDim, Math.floor(c.height/2));
-    let t=document.createElement('canvas'); t.width=nw; t.height=nh;
-    t.getContext('2d').drawImage(c,0,0,c.width,c.height,0,0,nw,nh);
-    c=t;
-  }
-  return c;
+/* ---------------- MULTI-STEP DOWNSCALE ---------------- */
+async function multiStepDownscale(img,maxDim=1024){
+    let c=document.createElement('canvas');
+    let cx=c.getContext('2d');
+    c.width=img.width;
+    c.height=img.height;
+    cx.drawImage(img,0,0);
+    while(c.width>maxDim || c.height>maxDim){
+        let nw=Math.max(maxDim,Math.floor(c.width/2));
+        let nh=Math.max(maxDim,Math.floor(c.height/2));
+        let t=document.createElement('canvas');
+        t.width=nw;
+        t.height=nh;
+        t.getContext('2d').drawImage(c,0,0,c.width,c.height,0,0,nw,nh);
+        c=t;
+    }
+    return c;
 }
 
-// --- MAIN GENERATOR ---
+/* ---------------- MAIN GENERATOR ---------------- */
 async function generateShells(){
-  const baseFile=document.getElementById('baseColor').files[0];
-  const depthFile=document.getElementById('depthMap').files[0];
-  const layerCountRaw=parseInt(document.getElementById('layerCount').value);
-  const cumulative=document.getElementById('cumulative').checked;
-  const useMultiStep=document.getElementById('multiStepDownscale').checked;
-  const accumInput = document.getElementById('accumCount');
+    const baseFile=document.getElementById('baseColor').files[0];
+    const depthFile=document.getElementById('depthMap').files[0];
+    const layerCountRaw=parseInt(document.getElementById('layerCount').value);
+    const cumulative=document.getElementById('cumulative').checked;
+    const useMultiStep=document.getElementById('multiStepDownscale').checked;
+    const accumInput=document.getElementById('accumCount');
 
-  let accumVal = parseInt(accumInput.value);
-  if(isNaN(accumVal) || accumVal < 1) accumVal = layerCountRaw;
-  if(accumVal > layerCountRaw) accumVal = layerCountRaw;
-  window._accumLimit = accumVal;
+    let accumVal=parseInt(accumInput.value);
+    if(isNaN(accumVal)||accumVal<1) accumVal=layerCountRaw;
+    if(accumVal>layerCountRaw) accumVal=layerCountRaw;
+    window._accumLimit=accumVal;
 
-  const layerCount=Math.min(256,Math.max(1,layerCountRaw));
-  const spinner=document.getElementById('loadingSpinner');
-  const previews=document.getElementById('layerPreviews');
-  const downloadLink=document.getElementById('downloadLink');
-  const canvas=document.getElementById('workingCanvas');
-  const ctx=canvas.getContext('2d');
+    const layerCount=Math.min(256,Math.max(1,layerCountRaw));
 
-  previews.innerHTML='';
-  downloadLink.style.display='none';
-  spinner.style.display='block';
+    const spinner=document.getElementById('loadingSpinner');
+    const previews=document.getElementById('layerPreviews');
+    const downloadLink=document.getElementById('downloadLink');
+    const canvas=document.getElementById('workingCanvas');
+    const ctx=canvas.getContext('2d');
 
-  if(!baseFile || !depthFile){ alert("Please upload both images."); spinner.style.display='none'; return; }
+    previews.innerHTML='';
+    downloadLink.style.display='none';
+    spinner.style.display='block';
 
-  let baseImg=await loadImage(URL.createObjectURL(baseFile));
-  let depthImg=await loadImage(URL.createObjectURL(depthFile));
-
-  if(useMultiStep && (baseImg.width>1024 || baseImg.height>1024)) baseImg=await multiStepDownscale(baseImg,1024);
-  if(useMultiStep && (depthImg.width>1024 || depthImg.height>1024)) depthImg=await multiStepDownscale(depthImg,1024);
-
-  let scale=1;
-  if(!useMultiStep && (baseImg.width>1024 || baseImg.height>1024)){
-    scale=Math.min(1024/baseImg.width,1024/baseImg.height);
-  }
-
-  const width = useMultiStep ? baseImg.width : Math.floor(baseImg.width*scale);
-  const height = useMultiStep ? baseImg.height : Math.floor(baseImg.height*scale);
-
-  canvas.width=width; canvas.height=height;
-
-  ctx.drawImage(baseImg,0,0,width,height);
-  const baseData=ctx.getImageData(0,0,width,height);
-  ctx.drawImage(depthImg,0,0,width,height);
-  const depthData=ctx.getImageData(0,0,width,height);
-
-  const shells=[];
-  const fadeRadius=6;
-
-  for(let layer=0; layer<layerCount; layer++){
-    const imgData=ctx.createImageData(width,height);
-
-    for(let i=0;i<baseData.data.length;i+=4){
-      const depthVal=depthData.data[i]/255;
-      const d = 1 - depthVal; // <--- Always black-to-white
-
-      let visible=false;
-      if(cumulative){
-        const limit = window._accumLimit;
-        let startLayer = 0;
-        if(limit < layerCount){
-          startLayer = Math.max(0, layer - (limit - 1));
-        }
-        const endLayer = layer;
-        const minDepth = startLayer / (layerCount - 1);
-        const maxDepth = endLayer / (layerCount - 1);
-        if(d >= minDepth && d <= maxDepth) visible = true;
-      } else {
-        const bandMin = layer/layerCount;
-        const bandMax = (layer+1)/layerCount;
-        if(d>bandMin && d<=bandMax) visible=true;
-      }
-
-      if(visible){
-        imgData.data[i]=baseData.data[i];
-        imgData.data[i+1]=baseData.data[i+1];
-        imgData.data[i+2]=baseData.data[i+2];
-        imgData.data[i+3]=baseData.data[i+3];
-      } else imgData.data[i+3]=0;
+    if(!baseFile||!depthFile){
+        alert("Please upload both images.");
+        spinner.style.display='none';
+        return;
     }
 
-    // EDGE FADE
-    const alphaCopy=new Uint8ClampedArray(imgData.data.length/4);
-    for(let p=0;p<alphaCopy.length;p++) alphaCopy[p]=imgData.data[p*4+3];
-    for(let y=0;y<height;y++){
-      for(let x=0;x<width;x++){
-        const idx=y*width+x;
-        if(alphaCopy[idx]===0) continue;
-        let minDist=fadeRadius+1;
-        for(let oy=-fadeRadius;oy<=fadeRadius;oy++){
-          for(let ox=-fadeRadius;ox<=fadeRadius;ox++){
-            if(ox===0 && oy===0) continue;
-            const nx=x+ox, ny=y+oy;
-            if(nx<0||nx>=width||ny<0||ny>=height) continue;
-            const nIdx=ny*width+nx;
-            if(alphaCopy[nIdx]===0){
-              const dist=Math.sqrt(ox*ox+oy*oy);
-              if(dist<minDist) minDist=dist;
+    let baseImg=await loadImage(URL.createObjectURL(baseFile));
+    let depthImg=await loadImage(URL.createObjectURL(depthFile));
+
+    if(useMultiStep && (baseImg.width>1024||baseImg.height>1024))
+        baseImg = await multiStepDownscale(baseImg,1024);
+    if(useMultiStep && (depthImg.width>1024||depthImg.height>1024))
+        depthImg = await multiStepDownscale(depthImg,1024);
+
+    let scale=1;
+    if(!useMultiStep && (baseImg.width>1024 || baseImg.height>1024)){
+        scale=Math.min(1024/baseImg.width,1024/baseImg.height);
+    }
+
+    const width = useMultiStep ? baseImg.width : Math.floor(baseImg.width*scale);
+    const height = useMultiStep ? baseImg.height : Math.floor(baseImg.height*scale);
+
+    canvas.width=width;
+    canvas.height=height;
+
+    ctx.drawImage(baseImg,0,0,width,height);
+    const baseData=ctx.getImageData(0,0,width,height);
+
+    ctx.drawImage(depthImg,0,0,width,height);
+    const depthData=ctx.getImageData(0,0,width,height);
+
+    const shells=[];
+    const fadeRadius=6;
+
+    const denom = Math.max(1, layerCount-1);
+
+    for(let layer=0; layer<layerCount; layer++){
+        const imgData=ctx.createImageData(width,height);
+
+        for(let i=0;i<baseData.data.length;i+=4){
+            const depthVal=depthData.data[i]/255;
+            const d=depthVal; // black=near, white=far
+
+            let visible=false;
+
+            if(cumulative){
+                const limit=window._accumLimit;
+                const startLayer=Math.max(0, layer-(limit-1));
+                const endLayer=layer;
+                const minDepth=startLayer/denom;
+                const maxDepth=endLayer/denom;
+                if(d>=minDepth && d<=maxDepth) visible=true;
+            } else {
+                const bandMin=layer/layerCount;
+                const bandMax=(layer+1)/layerCount;
+                if(d>bandMin && d<=bandMax) visible=true;
             }
-          }
+
+            if(visible){
+                imgData.data[i]=baseData.data[i];
+                imgData.data[i+1]=baseData.data[i+1];
+                imgData.data[i+2]=baseData.data[i+2];
+                imgData.data[i+3]=baseData.data[i+3];
+            } else {
+                imgData.data[i+3]=0;
+            }
         }
-        if(minDist<=fadeRadius){
-          const f=minDist/fadeRadius;
-          imgData.data[idx*4+3]=Math.floor(alphaCopy[idx]*f);
+
+        // EDGE FADE
+        const alphaCopy=new Uint8ClampedArray(imgData.data.length/4);
+        for(let p=0;p<alphaCopy.length;p++) alphaCopy[p]=imgData.data[p*4+3];
+
+        for(let y=0;y<height;y++){
+            for(let x=0;x<width;x++){
+                const idx=y*width+x;
+                if(alphaCopy[idx]===0) continue;
+
+                let minDist=fadeRadius+1;
+                for(let oy=-fadeRadius;oy<=fadeRadius;oy++){
+                    for(let ox=-fadeRadius;ox<=fadeRadius;ox++){
+                        if(ox===0 && oy===0) continue;
+                        const nx=x+ox, ny=y+oy;
+                        if(nx<0||nx>=width||ny<0||ny>=height) continue;
+                        const nIdx=ny*width+nx;
+                        if(alphaCopy[nIdx]===0){
+                            const dist=Math.sqrt(ox*ox+oy*oy);
+                            if(dist<minDist) minDist=dist;
+                        }
+                    }
+                }
+                if(minDist<=fadeRadius){
+                    const f=minDist/fadeRadius;
+                    imgData.data[idx*4+3]=Math.floor(alphaCopy[idx]*f);
+                }
+            }
         }
-      }
+
+        // PREVIEW & EXPORT ORDER: always push normally
+        shells.push(imgData);
+        const prev=document.createElement('canvas');
+        prev.width=width; prev.height=height;
+        prev.getContext('2d').putImageData(imgData,0,0);
+        const img=document.createElement('img');
+        img.src=prev.toDataURL('image/png');
+        previews.appendChild(img);
     }
 
-    // PREVIEW & EXPORT ORDER
-    if(cumulative && window._accumLimit === layerCount){
-      shells.unshift(imgData);
-      const prev=document.createElement('canvas');
-      prev.width=width; prev.height=height;
-      prev.getContext('2d').putImageData(imgData,0,0);
-      const img=document.createElement('img');
-      img.src=prev.toDataURL('image/png');
-      previews.insertBefore(img, previews.firstChild);
-    } else {
-      shells.push(imgData);
-      const prev=document.createElement('canvas');
-      prev.width=width; prev.height=height;
-      prev.getContext('2d').putImageData(imgData,0,0);
-      const img=document.createElement('img');
-      img.src=prev.toDataURL('image/png');
-      previews.appendChild(img);
+    spinner.style.display='none';
+
+    // ZIP EXPORT
+    const zip=new JSZip();
+    for(let i=0;i<shells.length;i++){
+        const c=document.createElement('canvas');
+        c.width=width; c.height=height;
+        c.getContext('2d').putImageData(shells[i],0,0);
+        const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+        zip.file(`shell_layer_${String(i+1).padStart(3,'0')}.png`,blob);
     }
-  }
-
-  spinner.style.display='none';
-
-  // ZIP EXPORT
-  const zip=new JSZip();
-  for(let i=0;i<shells.length;i++){
-    const c=document.createElement('canvas'); c.width=width; c.height=height;
-    c.getContext('2d').putImageData(shells[i],0,0);
-    const blob=await new Promise(r=>c.toBlob(r,'image/png'));
-    zip.file(`shell_layer_${String(i+1).padStart(3,'0')}.png`,blob);
-  }
-  const content=await zip.generateAsync({type:'blob'});
-  const url=URL.createObjectURL(content);
-  downloadLink.href=url; downloadLink.style.display='inline-block';
-  downloadLink.textContent=`Download ${shells.length} shell layers (zip)`;
+    const content=await zip.generateAsync({type:'blob'});
+    const url=URL.createObjectURL(content);
+    downloadLink.href=url;
+    downloadLink.style.display='inline-block';
+    downloadLink.textContent=`Download ${shells.length} shell layers (zip)`;
 }
 
-// --- CUMULATIVE INPUT BEHAVIOR ---
-const layerCountInput = document.getElementById('layerCount');
-const cumulativeCheckbox = document.getElementById('cumulative');
-const accumInput = document.getElementById('accumCount');
+/* ---------------- CUMULATIVE INPUT BEHAVIOR ---------------- */
+const layerCountInput=document.getElementById('layerCount');
+const cumulativeCheckbox=document.getElementById('cumulative');
+const accumInput=document.getElementById('accumCount');
 
-cumulativeCheckbox.addEventListener('change', () => {
-  if(cumulativeCheckbox.checked){
-    accumInput.value = layerCountInput.value;
-  } else {
-    accumInput.value = '';
-  }
+cumulativeCheckbox.addEventListener('change',()=>{
+    if(cumulativeCheckbox.checked){
+        accumInput.value = layerCountInput.value;
+    } else {
+        accumInput.value = '';
+    }
 });
-
-layerCountInput.addEventListener('input', () => {
-  const layerCount = parseInt(layerCountInput.value) || 1;
-  if(cumulativeCheckbox.checked){
-    accumInput.value = layerCount;
-  }
+layerCountInput.addEventListener('input',()=>{
+    const layerCount=parseInt(layerCountInput.value)||1;
+    if(cumulativeCheckbox.checked){
+        accumInput.value = layerCount;
+    }
 });
-
-accumInput.addEventListener('input', () => {
-  accumInput.value = accumInput.value.replace(/\D/g,'');
+accumInput.addEventListener('input',()=>{
+    accumInput.value=accumInput.value.replace(/\D/g,'');
 });
 
 document.getElementById('generateBtn').addEventListener('click',generateShells);
 </script>
+
 </body>
 </html>
