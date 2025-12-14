@@ -363,14 +363,23 @@ async function generateShells(){
 
             let visible=false;
 
-            if(cumulative){
-                const limit=window._accumLimit;
-                const startLayer=Math.max(0, layer-(limit-1));
-                const endLayer=layer;
-                const minDepth=startLayer/denom;
-                const maxDepth=endLayer/denom;
-                if(d>=minDepth && d<=maxDepth) visible=true;
-            } else {
+            if (cumulative) {
+    const limit = window._accumLimit;
+
+    if (limit === layerCount) {
+        // FULL accumulation: delete black → white
+        const threshold = 1 - (layer / denom);
+        if (d >= threshold) visible = true;
+    } else {
+        // PARTIAL accumulation (unchanged behavior)
+        const startLayer = Math.max(0, layer - (limit - 1));
+        const endLayer = layer;
+        const minDepth = startLayer / denom;
+        const maxDepth = endLayer / denom;
+        if (d >= minDepth && d <= maxDepth) visible = true;
+    }
+}
+ else {
                 const bandMin=layer/layerCount;
                 const bandMax=(layer+1)/layerCount;
                 if(d>bandMin && d<=bandMax) visible=true;
@@ -416,13 +425,23 @@ async function generateShells(){
         }
 
         // PREVIEW & EXPORT ORDER: always push normally
-        shells.push(imgData);
+        if (cumulative && window._accumLimit === layerCount) {
+    shells.unshift(imgData);
+} else {
+    shells.push(imgData);
+}
+
         const prev=document.createElement('canvas');
         prev.width=width; prev.height=height;
         prev.getContext('2d').putImageData(imgData,0,0);
         const img=document.createElement('img');
         img.src=prev.toDataURL('image/png');
-        previews.appendChild(img);
+        if (cumulative && window._accumLimit === layerCount) {
+    previews.insertBefore(img, previews.firstChild);
+} else {
+    previews.appendChild(img);
+}
+
     }
 
     spinner.style.display='none';
