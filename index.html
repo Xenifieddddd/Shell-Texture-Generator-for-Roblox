@@ -274,7 +274,7 @@ function loadImage(src){
 }
 
 /* ---------------- MULTI-STEP DOWNSCALE ---------------- */
-async function multiStepDownscale(img,maxDim=1024){
+async function multiStepDownscale(img,maxDim=4096){
     let c=document.createElement('canvas');
     let cx=c.getContext('2d');
     c.width=img.width;
@@ -489,3 +489,4 @@ document.getElementById('generateBtn').addEventListener('click',generateShells);
 
 </body>
 </html>
+
