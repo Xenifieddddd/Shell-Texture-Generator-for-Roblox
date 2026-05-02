@@ -1327,73 +1327,84 @@ function setProg(cur, tot) {
   document.getElementById('progCnt').textContent  = `${cur} / ${tot}`;
 }
 
-/* ─── PNG ENCODING via Web Worker (off main thread) ─── */
-// Encodes ImageData → PNG blob in a worker so the main thread never hangs.
-// Falls back to OffscreenCanvas on main thread if workers are unavailable.
-function encodeLayersInWorker(shellData, orderedIdx, W, H, layerCount, onProgress) {
-  return new Promise((resolve, reject) => {
-    // Worker script as a blob URL so no separate file is needed
-    const workerSrc = `
-self.onmessage = async function(e) {
-  const { buffers, W, H, layerCount } = e.data;
-  const blobs = [];
-  for (let i = 0; i < layerCount; i++) {
-    const oc = new OffscreenCanvas(W, H);
-    const ctx = oc.getContext('2d');
-    ctx.putImageData(new ImageData(new Uint8ClampedArray(buffers[i]), W, H), 0, 0);
-    blobs.push(await oc.convertToBlob({ type: 'image/png' }));
-    self.postMessage({ type: 'progress', done: i + 1 });
-  }
-  const arrayBufs = await Promise.all(blobs.map(b => b.arrayBuffer()));
-  self.postMessage({ type: 'done', buffers: arrayBufs }, arrayBufs);
-};`;
-    const workerUrl = URL.createObjectURL(new Blob([workerSrc], { type: 'text/javascript' }));
-    const worker = new Worker(workerUrl);
-    // Transfer ImageData buffers to worker (zero-copy)
-    const buffers = orderedIdx.map(idx => shellData[idx].data.buffer.slice(0));
-    worker.onmessage = (e) => {
-      if (e.data.type === 'progress') { onProgress(e.data.done); return; }
-      URL.revokeObjectURL(workerUrl);
-      worker.terminate();
-      resolve(e.data.buffers.map(ab => new Blob([ab], { type: 'image/png' })));
-    };
-    worker.onerror = (err) => { URL.revokeObjectURL(workerUrl); reject(err); };
-    worker.postMessage({ buffers, W, H, layerCount }, buffers);
-  });
-}
+/* ─── PNG ENCODING + ZIP PACKING ─── */
+// Each layer is encoded to PNG via OffscreenCanvas and added to the ZIP one at a time.
+// If a Worker is available, encoding runs off the main thread so the UI never hangs.
+// The Worker streams results back one-by-one (not all at once) to keep memory low.
+// JSZip uses STORE (no extra compression) because PNGs are already compressed.
 
 async function packZipFast(shellData, orderedIdx, W, H, layerCount, onProgress) {
   const zip = new JSZip();
-  let blobs;
 
-  const canUseWorker = typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined';
-  if (canUseWorker) {
-    blobs = await encodeLayersInWorker(shellData, orderedIdx, W, H, layerCount, onProgress);
+  const canWorker = typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined';
+
+  if (canWorker) {
+    // Build the worker as an inline blob URL — no separate file needed
+    const workerCode = `
+self.onmessage = async ({ data: { pixels, W, H, name } }) => {
+  const oc = new OffscreenCanvas(W, H);
+  oc.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pixels), W, H), 0, 0);
+  const blob = await oc.convertToBlob({ type: 'image/png' });
+  const ab = await blob.arrayBuffer();
+  self.postMessage({ name, ab }, [ab]);
+};`;
+    const wurl = URL.createObjectURL(new Blob([workerCode], { type: 'text/javascript' }));
+
+    // Process one layer at a time through the worker — avoids holding all encoded PNGs in memory
+    await new Promise((resolve, reject) => {
+      const worker = new Worker(wurl);
+      let sent = 0, received = 0;
+
+      const sendNext = () => {
+        if (sent >= layerCount) return;
+        const pos = sent++;
+        const pixels = shellData[orderedIdx[pos]].data.buffer.slice(0);
+        const name = 'Layer_' + String(pos + 1).padStart(3, '0') + '.png';
+        worker.postMessage({ pixels, W, H, name }, [pixels]);
+        // Keep at most 2 in-flight at once to avoid memory spikes on large images
+        if (sent < layerCount && sent - received < 2) sendNext();
+      };
+
+      worker.onmessage = ({ data: { name, ab } }) => {
+        zip.file(name, ab);
+        received++;
+        onProgress(received);
+        if (received === layerCount) {
+          worker.terminate();
+          URL.revokeObjectURL(wurl);
+          resolve();
+        } else {
+          sendNext();
+        }
+      };
+
+      worker.onerror = (e) => { worker.terminate(); URL.revokeObjectURL(wurl); reject(e); };
+      // Kick off first 2
+      sendNext();
+      sendNext();
+    });
+
   } else {
-    // Fallback: main-thread OffscreenCanvas or regular canvas, one at a time
-    blobs = [];
-    const useOffscreen = typeof OffscreenCanvas !== 'undefined';
+    // Fallback: main thread, one at a time
     for (let pos = 0; pos < layerCount; pos++) {
-      let blob;
-      if (useOffscreen) {
+      let ab;
+      if (typeof OffscreenCanvas !== 'undefined') {
         const oc = new OffscreenCanvas(W, H);
         oc.getContext('2d').putImageData(shellData[orderedIdx[pos]], 0, 0);
-        blob = await oc.convertToBlob({ type: 'image/png' });
+        ab = await (await oc.convertToBlob({ type: 'image/png' })).arrayBuffer();
       } else {
         const sc = document.createElement('canvas'); sc.width = W; sc.height = H;
         sc.getContext('2d').putImageData(shellData[orderedIdx[pos]], 0, 0);
-        blob = await new Promise(r => sc.toBlob(r, 'image/png'));
+        ab = await new Promise(r => sc.toBlob(b => b.arrayBuffer().then(r), 'image/png'));
       }
-      blobs.push(blob);
+      zip.file('Layer_' + String(pos + 1).padStart(3, '0') + '.png', ab);
       onProgress(pos + 1);
+      await new Promise(r => setTimeout(r, 0)); // yield to UI
     }
   }
 
-  for (let pos = 0; pos < layerCount; pos++) {
-    zip.file(`Layer_${String(pos+1).padStart(3,'0')}.png`, blobs[pos]);
-  }
-  // STORE = no ZIP-level compression. PNGs are already compressed internally,
-  // so DEFLATE here just burns CPU for zero size benefit.
+  // STORE = no ZIP-level compression. PNGs are already internally compressed —
+  // running DEFLATE on top burns CPU for essentially zero size reduction.
   return zip.generateAsync({ type: 'blob', compression: 'STORE' });
 }
 
@@ -1520,13 +1531,13 @@ async function generate() {
       ? Array.from({length:layerCount},(_,i)=>layerCount-1-i)
       : Array.from({length:layerCount},(_,i)=>i);
 
-    // ── ZIP PACK (off main thread via Worker) — download button appears as soon as done ──
+    // ── ZIP first: encode PNGs and pack — download button appears immediately after ──
     document.getElementById('progLbl').textContent='Encoding PNGs…';
     setProg(0, layerCount);
     await new Promise(r=>setTimeout(r,0));
 
     const content = await packZipFast(shellData, orderedIdx, W, H, layerCount, (done) => {
-      document.getElementById('progLbl').textContent='Encoding PNGs… '+done+'/'+layerCount;
+      document.getElementById('progLbl').textContent='Encoding PNGs… ' + done + '/' + layerCount;
       setProg(done, layerCount);
     });
 
@@ -1538,40 +1549,35 @@ async function generate() {
     document.getElementById('progLbl').textContent='Done';
     toast(`✓  ${layerCount} layers · ${W}×${H}`);
 
-    // ── Build previews AFTER download button is shown ──
-    // Thumbnails are downscaled to 256px and encoded as JPEG — fast, no alpha needed for display
+    // ── Previews build after download button is shown ──
+    // Thumbnails are downscaled to 256px max and encoded as JPEG — fast, display-only
     document.getElementById('prevsBadge').textContent = `${layerCount} layers · ${W}×${H}`;
     prevsWrap.classList.add('on');
 
     const THUMB = 256;
-    const tScale = Math.min(1, THUMB / Math.max(W, H));
-    const tW = Math.round(W * tScale), tH = Math.round(H * tScale);
-    const prevCanvas = document.createElement('canvas');
-    prevCanvas.width = tW; prevCanvas.height = tH;
-    const prevCtx = prevCanvas.getContext('2d', {willReadFrequently: true});
-    // Scratch full-res canvas just for drawImage source
-    const srcCanvas = document.createElement('canvas');
-    srcCanvas.width = W; srcCanvas.height = H;
-    const srcCtx = srcCanvas.getContext('2d', {willReadFrequently: true});
+    const tS = Math.min(1, THUMB / Math.max(W, H));
+    const tW = Math.round(W * tS), tH = Math.round(H * tS);
+    const srcC = document.createElement('canvas'); srcC.width = W; srcC.height = H;
+    const srcX = srcC.getContext('2d', {willReadFrequently: true});
+    const tC = document.createElement('canvas'); tC.width = tW; tC.height = tH;
+    const tX = tC.getContext('2d');
 
-    const PREV_CHUNK = 16;
     let frag = document.createDocumentFragment();
-
-    for (let pos=0; pos<layerCount; pos++) {
-      srcCtx.putImageData(shellData[orderedIdx[pos]], 0, 0);
-      prevCtx.clearRect(0, 0, tW, tH);
-      prevCtx.drawImage(srcCanvas, 0, 0, tW, tH);
+    for (let pos = 0; pos < layerCount; pos++) {
+      srcX.putImageData(shellData[orderedIdx[pos]], 0, 0);
+      tX.clearRect(0, 0, tW, tH);
+      tX.drawImage(srcC, 0, 0, tW, tH);
       const item = document.createElement('div'); item.className='prev-item';
       item.style.animationDelay = Math.min(pos*0.018, 0.28)+'s';
       const img2 = document.createElement('img');
-      img2.src = prevCanvas.toDataURL('image/jpeg', 0.80);
-      const num  = document.createElement('div'); num.className='prev-num';
+      img2.src = tC.toDataURL('image/jpeg', 0.80);
+      const num = document.createElement('div'); num.className='prev-num';
       num.textContent = String(pos+1).padStart(2,'0');
       item.appendChild(img2); item.appendChild(num); frag.appendChild(item);
-      if ((pos+1) % PREV_CHUNK === 0) {
+      if ((pos + 1) % 8 === 0) {
         prevsGrid.appendChild(frag);
         frag = document.createDocumentFragment();
-        await new Promise(r=>setTimeout(r,0));
+        await new Promise(r => setTimeout(r, 0));
       }
     }
     if (frag.childNodes.length) prevsGrid.appendChild(frag);
