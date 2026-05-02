@@ -1327,85 +1327,189 @@ function setProg(cur, tot) {
   document.getElementById('progCnt').textContent  = `${cur} / ${tot}`;
 }
 
-/* ─── PNG ENCODING + ZIP PACKING ─── */
-// Each layer is encoded to PNG via OffscreenCanvas and added to the ZIP one at a time.
-// If a Worker is available, encoding runs off the main thread so the UI never hangs.
-// The Worker streams results back one-by-one (not all at once) to keep memory low.
-// JSZip uses STORE (no extra compression) because PNGs are already compressed.
+/* ─── PNG ENCODE + ZIP — entirely off main thread ─── */
+// The Worker:
+//   1. Encodes each ImageData to PNG via OffscreenCanvas
+//   2. Builds a valid ZIP (STORE, no compression) from scratch — no library needed
+//   3. Posts back the finished ZIP ArrayBuffer in one transfer
+// The main thread never touches PNG encoding or ZIP assembly.
 
-async function packZipFast(shellData, orderedIdx, W, H, layerCount, onProgress) {
-  const zip = new JSZip();
+function buildZipInWorker(shellData, orderedIdx, W, H, layerCount, onProgress) {
+  return new Promise((resolve, reject) => {
 
-  const canWorker = typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined';
-
-  if (canWorker) {
-    // Build the worker as an inline blob URL — no separate file needed
     const workerCode = `
-self.onmessage = async ({ data: { pixels, W, H, name } }) => {
-  const oc = new OffscreenCanvas(W, H);
-  oc.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pixels), W, H), 0, 0);
-  const blob = await oc.convertToBlob({ type: 'image/png' });
-  const ab = await blob.arrayBuffer();
-  self.postMessage({ name, ab }, [ab]);
-};`;
-    const wurl = URL.createObjectURL(new Blob([workerCode], { type: 'text/javascript' }));
+/* Minimal ZIP builder (STORE method) — no dependencies */
+function makeZip(entries) {
+  // entries: [{name: string, data: Uint8Array}]
+  const enc = new TextEncoder();
+  const localHeaders = [];
+  const centralHeaders = [];
+  let offset = 0;
 
-    // Process one layer at a time through the worker — avoids holding all encoded PNGs in memory
-    await new Promise((resolve, reject) => {
-      const worker = new Worker(wurl);
-      let sent = 0, received = 0;
+  for (const { name, data } of entries) {
+    const nameBytes = enc.encode(name);
+    const crc = crc32(data);
+    const size = data.byteLength;
 
-      const sendNext = () => {
-        if (sent >= layerCount) return;
-        const pos = sent++;
-        const pixels = shellData[orderedIdx[pos]].data.buffer.slice(0);
-        const name = 'Layer_' + String(pos + 1).padStart(3, '0') + '.png';
-        worker.postMessage({ pixels, W, H, name }, [pixels]);
-        // Keep at most 2 in-flight at once to avoid memory spikes on large images
-        if (sent < layerCount && sent - received < 2) sendNext();
-      };
+    // Local file header
+    const lh = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(lh.buffer);
+    lv.setUint32(0,  0x04034b50, true); // signature
+    lv.setUint16(4,  20, true);          // version needed
+    lv.setUint16(6,  0,  true);          // flags
+    lv.setUint16(8,  0,  true);          // STORE
+    lv.setUint16(10, 0,  true);          // mod time
+    lv.setUint16(12, 0,  true);          // mod date
+    lv.setUint32(14, crc,  true);
+    lv.setUint32(18, size, true);
+    lv.setUint32(22, size, true);
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);
+    lh.set(nameBytes, 30);
+    localHeaders.push({ lh, data, offset });
 
-      worker.onmessage = ({ data: { name, ab } }) => {
-        zip.file(name, ab);
-        received++;
-        onProgress(received);
-        if (received === layerCount) {
-          worker.terminate();
-          URL.revokeObjectURL(wurl);
-          resolve();
-        } else {
-          sendNext();
-        }
-      };
+    // Central directory entry
+    const cd = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(cd.buffer);
+    cv.setUint32(0,  0x02014b50, true);
+    cv.setUint16(4,  20, true);
+    cv.setUint16(6,  20, true);
+    cv.setUint16(8,  0,  true);
+    cv.setUint16(10, 0,  true);
+    cv.setUint16(12, 0,  true);
+    cv.setUint16(14, 0,  true);
+    cv.setUint32(16, crc,  true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
+    cd.set(nameBytes, 46);
+    centralHeaders.push(cd);
 
-      worker.onerror = (e) => { worker.terminate(); URL.revokeObjectURL(wurl); reject(e); };
-      // Kick off first 2
-      sendNext();
-      sendNext();
-    });
-
-  } else {
-    // Fallback: main thread, one at a time
-    for (let pos = 0; pos < layerCount; pos++) {
-      let ab;
-      if (typeof OffscreenCanvas !== 'undefined') {
-        const oc = new OffscreenCanvas(W, H);
-        oc.getContext('2d').putImageData(shellData[orderedIdx[pos]], 0, 0);
-        ab = await (await oc.convertToBlob({ type: 'image/png' })).arrayBuffer();
-      } else {
-        const sc = document.createElement('canvas'); sc.width = W; sc.height = H;
-        sc.getContext('2d').putImageData(shellData[orderedIdx[pos]], 0, 0);
-        ab = await new Promise(r => sc.toBlob(b => b.arrayBuffer().then(r), 'image/png'));
-      }
-      zip.file('Layer_' + String(pos + 1).padStart(3, '0') + '.png', ab);
-      onProgress(pos + 1);
-      await new Promise(r => setTimeout(r, 0)); // yield to UI
-    }
+    offset += lh.byteLength + size;
   }
 
-  // STORE = no ZIP-level compression. PNGs are already internally compressed —
-  // running DEFLATE on top burns CPU for essentially zero size reduction.
-  return zip.generateAsync({ type: 'blob', compression: 'STORE' });
+  const cdOffset = offset;
+  const cdSize = centralHeaders.reduce((s, c) => s + c.byteLength, 0);
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0,  0x06054b50, true);
+  ev.setUint16(4,  0, true);
+  ev.setUint16(6,  0, true);
+  ev.setUint16(8,  entries.length, true);
+  ev.setUint16(10, entries.length, true);
+  ev.setUint32(12, cdSize,   true);
+  ev.setUint32(16, cdOffset, true);
+  ev.setUint16(20, 0, true);
+
+  const total = offset + cdSize + eocd.byteLength;
+  const out = new Uint8Array(total);
+  let pos = 0;
+  for (const { lh, data } of localHeaders) {
+    out.set(lh, pos); pos += lh.byteLength;
+    out.set(data, pos); pos += data.byteLength;
+  }
+  for (const cd of centralHeaders) { out.set(cd, pos); pos += cd.byteLength; }
+  out.set(eocd, pos);
+  return out.buffer;
+}
+
+function crc32(data) {
+  let c = 0xFFFFFFFF;
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let v = i;
+    for (let j = 0; j < 8; j++) v = (v & 1) ? (0xEDB88320 ^ (v >>> 1)) : (v >>> 1);
+    t[i] = v;
+  }
+  for (let i = 0; i < data.length; i++) c = t[(c ^ data[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+self.onmessage = async ({ data: { pixelBuffers, W, H, layerCount } }) => {
+  const entries = [];
+  for (let i = 0; i < layerCount; i++) {
+    const oc = new OffscreenCanvas(W, H);
+    oc.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pixelBuffers[i]), W, H), 0, 0);
+    const blob = await oc.convertToBlob({ type: 'image/png' });
+    const ab = await blob.arrayBuffer();
+    entries.push({ name: 'Layer_' + String(i + 1).padStart(3, '0') + '.png', data: new Uint8Array(ab) });
+    self.postMessage({ type: 'progress', done: i + 1 });
+  }
+  const zipAb = makeZip(entries);
+  self.postMessage({ type: 'done', zipAb }, [zipAb]);
+};`;
+
+    const wurl = URL.createObjectURL(new Blob([workerCode], { type: 'text/javascript' }));
+    const worker = new Worker(wurl);
+
+    // Transfer all pixel buffers to the worker (zero-copy)
+    const pixelBuffers = orderedIdx.map(idx => shellData[idx].data.buffer.slice(0));
+    worker.onmessage = ({ data }) => {
+      if (data.type === 'progress') { onProgress(data.done); return; }
+      worker.terminate();
+      URL.revokeObjectURL(wurl);
+      resolve(new Blob([data.zipAb], { type: 'application/zip' }));
+    };
+    worker.onerror = (e) => { worker.terminate(); URL.revokeObjectURL(wurl); reject(e); };
+    worker.postMessage({ pixelBuffers, W, H, layerCount }, pixelBuffers);
+  });
+}
+
+async function packZipFast(shellData, orderedIdx, W, H, layerCount, onProgress) {
+  if (typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined') {
+    return buildZipInWorker(shellData, orderedIdx, W, H, layerCount, onProgress);
+  }
+  // Fallback: main thread, one file at a time, no ZIP library needed
+  // (builds same STORE zip manually)
+  const entries = [];
+  for (let pos = 0; pos < layerCount; pos++) {
+    let ab;
+    if (typeof OffscreenCanvas !== 'undefined') {
+      const oc = new OffscreenCanvas(W, H);
+      oc.getContext('2d').putImageData(shellData[orderedIdx[pos]], 0, 0);
+      ab = await (await oc.convertToBlob({ type: 'image/png' })).arrayBuffer();
+    } else {
+      const sc = document.createElement('canvas'); sc.width = W; sc.height = H;
+      sc.getContext('2d').putImageData(shellData[orderedIdx[pos]], 0, 0);
+      ab = await new Promise(r => sc.toBlob(b => b.arrayBuffer().then(r), 'image/png'));
+    }
+    entries.push({ name: 'Layer_' + String(pos + 1).padStart(3, '0') + '.png', data: new Uint8Array(ab) });
+    onProgress(pos + 1);
+    await new Promise(r => setTimeout(r, 0));
+  }
+  // inline zip builder (same as worker version, duplicated for fallback)
+  const enc = new TextEncoder();
+  const localParts = [], cdParts = [];
+  let offset = 0;
+  const crcTable = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) { let v=i; for(let j=0;j<8;j++) v=(v&1)?(0xEDB88320^(v>>>1)):(v>>>1); crcTable[i]=v; }
+  const calcCrc = d => { let c=0xFFFFFFFF; for(let i=0;i<d.length;i++) c=crcTable[(c^d[i])&0xFF]^(c>>>8); return (c^0xFFFFFFFF)>>>0; };
+  for (const { name, data } of entries) {
+    const nb=enc.encode(name), crc=calcCrc(data), sz=data.byteLength;
+    const lh=new Uint8Array(30+nb.length); const lv=new DataView(lh.buffer);
+    lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0,true);lv.setUint16(8,0,true);
+    lv.setUint16(10,0,true);lv.setUint16(12,0,true);lv.setUint32(14,crc,true);lv.setUint32(18,sz,true);
+    lv.setUint32(22,sz,true);lv.setUint16(26,nb.length,true);lv.setUint16(28,0,true);lh.set(nb,30);
+    const cd=new Uint8Array(46+nb.length); const cv=new DataView(cd.buffer);
+    cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0,true);
+    cv.setUint16(10,0,true);cv.setUint16(12,0,true);cv.setUint16(14,0,true);cv.setUint32(16,crc,true);
+    cv.setUint32(20,sz,true);cv.setUint32(24,sz,true);cv.setUint16(28,nb.length,true);
+    cv.setUint16(30,0,true);cv.setUint16(32,0,true);cv.setUint16(34,0,true);cv.setUint16(36,0,true);
+    cv.setUint32(38,0,true);cv.setUint32(42,offset,true);cd.set(nb,46);
+    localParts.push(lh, data); cdParts.push(cd);
+    offset += lh.byteLength + sz;
+  }
+  const cdSize=cdParts.reduce((s,c)=>s+c.byteLength,0);
+  const eocd=new Uint8Array(22); const ev=new DataView(eocd.buffer);
+  ev.setUint32(0,0x06054b50,true);ev.setUint16(8,entries.length,true);ev.setUint16(10,entries.length,true);
+  ev.setUint32(12,cdSize,true);ev.setUint32(16,offset,true);
+  return new Blob([...localParts,...cdParts,eocd],{type:'application/zip'});
 }
 
 /* ─── GENERATE ──────────────────────────────── */
@@ -1531,7 +1635,7 @@ async function generate() {
       ? Array.from({length:layerCount},(_,i)=>layerCount-1-i)
       : Array.from({length:layerCount},(_,i)=>i);
 
-    // ── ZIP first: encode PNGs and pack — download button appears immediately after ──
+    // ── ZIP first (Worker handles encode+pack) — download button appears immediately after ──
     document.getElementById('progLbl').textContent='Encoding PNGs…';
     setProg(0, layerCount);
     await new Promise(r=>setTimeout(r,0));
@@ -1549,11 +1653,9 @@ async function generate() {
     document.getElementById('progLbl').textContent='Done';
     toast(`✓  ${layerCount} layers · ${W}×${H}`);
 
-    // ── Previews build after download button is shown ──
-    // Thumbnails are downscaled to 256px max and encoded as JPEG — fast, display-only
+    // ── Previews after download button — downscaled JPEG thumbnails, non-blocking ──
     document.getElementById('prevsBadge').textContent = `${layerCount} layers · ${W}×${H}`;
     prevsWrap.classList.add('on');
-
     const THUMB = 256;
     const tS = Math.min(1, THUMB / Math.max(W, H));
     const tW = Math.round(W * tS), tH = Math.round(H * tS);
@@ -1561,7 +1663,6 @@ async function generate() {
     const srcX = srcC.getContext('2d', {willReadFrequently: true});
     const tC = document.createElement('canvas'); tC.width = tW; tC.height = tH;
     const tX = tC.getContext('2d');
-
     let frag = document.createDocumentFragment();
     for (let pos = 0; pos < layerCount; pos++) {
       srcX.putImageData(shellData[orderedIdx[pos]], 0, 0);
