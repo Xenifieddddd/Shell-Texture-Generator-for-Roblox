@@ -1368,7 +1368,8 @@ async function packZipFast(shellData, orderedIdx, W, H, layerCount) {
       zip.file(`Layer_${String(pos+1).padStart(3,'0')}.png`, blob);
     }
   }
-  return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 1 } });
+  // PNGs are already compressed internally — STORE skips redundant DEFLATE, making this ~instant
+  return zip.generateAsync({ type: 'blob', compression: 'STORE' });
 }
 
 /* ─── GENERATE ──────────────────────────────── */
@@ -1494,7 +1495,7 @@ async function generate() {
       ? Array.from({length:layerCount},(_,i)=>layerCount-1-i)
       : Array.from({length:layerCount},(_,i)=>i);
 
-    // ── FAST ZIP PACK first — download button appears as soon as ZIP is ready ──
+    // ── ZIP first — download button appears as soon as ZIP is ready ──
     document.getElementById('progLbl').textContent='Packing ZIP…';
     await new Promise(r=>setTimeout(r,0));
 
@@ -1508,8 +1509,8 @@ async function generate() {
     document.getElementById('progLbl').textContent='Done';
     toast(`✓  ${layerCount} layers · ${W}×${H}`);
 
-    // ── Build previews async AFTER download button is shown ──
-    // Previews are screen thumbnails only — JPEG is fine (no alpha needed for display)
+    // ── Build previews AFTER download button is shown ──
+    // JPEG is fine for screen thumbnails — no alpha needed for display
     document.getElementById('prevsBadge').textContent = `${layerCount} layers · ${W}×${H}`;
     prevsWrap.classList.add('on');
 
@@ -1524,12 +1525,10 @@ async function generate() {
       const item = document.createElement('div'); item.className='prev-item';
       item.style.animationDelay = Math.min(pos*0.018, 0.28)+'s';
       const img2 = document.createElement('img');
-      // JPEG for previews: ~10x faster than PNG, alpha not needed for screen display
       img2.src = prevCanvas.toDataURL('image/jpeg', 0.82);
       const num  = document.createElement('div'); num.className='prev-num';
       num.textContent = String(pos+1).padStart(2,'0');
       item.appendChild(img2); item.appendChild(num); frag.appendChild(item);
-      // yield periodically so the page stays responsive
       if ((pos+1) % PREV_CHUNK === 0) {
         prevsGrid.appendChild(frag.cloneNode(true));
         frag.replaceChildren();
